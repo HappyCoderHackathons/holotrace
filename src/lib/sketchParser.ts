@@ -1,6 +1,6 @@
-import { v4 as uuid } from 'uuid';
 import type { CircuitComponent, CircuitState, Wire } from './types';
 import { defaultPins } from './componentLibrary';
+import { createId } from './id';
 
 /**
  * Simulates parsing a hand-drawn circuit sketch into a digital circuit.
@@ -13,7 +13,7 @@ export async function parseSketch(imageDataUrl: string): Promise<CircuitState> {
 	await new Promise((r) => setTimeout(r, 1400));
 
 	const battery: CircuitComponent = {
-		id: uuid(),
+		id: createId(),
 		refId: 'BAT1',
 		type: 'battery',
 		label: 'Coin Cell 3V Battery',
@@ -25,7 +25,7 @@ export async function parseSketch(imageDataUrl: string): Promise<CircuitState> {
 		pins: defaultPins('battery')
 	};
 	const resistor: CircuitComponent = {
-		id: uuid(),
+		id: createId(),
 		refId: 'R1',
 		type: 'resistor',
 		label: 'Resistor',
@@ -37,7 +37,7 @@ export async function parseSketch(imageDataUrl: string): Promise<CircuitState> {
 		pins: defaultPins('resistor')
 	};
 	const led: CircuitComponent = {
-		id: uuid(),
+		id: createId(),
 		refId: 'D1',
 		type: 'led',
 		label: 'LED',
@@ -52,7 +52,7 @@ export async function parseSketch(imageDataUrl: string): Promise<CircuitState> {
 
 	const wires: Wire[] = [
 		{
-			id: uuid(),
+			id: createId(),
 			fromComponentId: battery.id,
 			fromPinId: 'pos',
 			toComponentId: led.id,
@@ -65,7 +65,7 @@ export async function parseSketch(imageDataUrl: string): Promise<CircuitState> {
 			]
 		},
 		{
-			id: uuid(),
+			id: createId(),
 			fromComponentId: led.id,
 			fromPinId: 'a',
 			toComponentId: resistor.id,
@@ -74,7 +74,7 @@ export async function parseSketch(imageDataUrl: string): Promise<CircuitState> {
 			style: 'solid'
 		},
 		{
-			id: uuid(),
+			id: createId(),
 			fromComponentId: resistor.id,
 			fromPinId: '1',
 			toComponentId: battery.id,

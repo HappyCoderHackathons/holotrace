@@ -1,5 +1,4 @@
 import { writable, derived, get } from 'svelte/store';
-import { v4 as uuid } from 'uuid';
 import type {
 	CircuitComponent,
 	CircuitState,
@@ -9,10 +8,11 @@ import type {
 	EditTool
 } from '../types';
 import { REF_PREFIX, defaultPins, PALETTE } from '../componentLibrary';
+import { createId } from '../id';
 
 function sampleCircuit(): CircuitState {
 	const battery: CircuitComponent = {
-		id: uuid(),
+		id: createId(),
 		refId: 'BAT1',
 		type: 'battery',
 		label: 'Coin Cell 3V Battery',
@@ -24,7 +24,7 @@ function sampleCircuit(): CircuitState {
 		pins: defaultPins('battery')
 	};
 	const resistor: CircuitComponent = {
-		id: uuid(),
+		id: createId(),
 		refId: 'R1',
 		type: 'resistor',
 		label: 'Resistor',
@@ -36,7 +36,7 @@ function sampleCircuit(): CircuitState {
 		pins: defaultPins('resistor')
 	};
 	const led: CircuitComponent = {
-		id: uuid(),
+		id: createId(),
 		refId: 'D1',
 		type: 'led',
 		label: 'LED',
@@ -51,7 +51,7 @@ function sampleCircuit(): CircuitState {
 
 	const wires: Wire[] = [
 		{
-			id: uuid(),
+			id: createId(),
 			fromComponentId: battery.id,
 			fromPinId: 'pos',
 			toComponentId: led.id,
@@ -64,7 +64,7 @@ function sampleCircuit(): CircuitState {
 			]
 		},
 		{
-			id: uuid(),
+			id: createId(),
 			fromComponentId: led.id,
 			fromPinId: 'a',
 			toComponentId: resistor.id,
@@ -73,7 +73,7 @@ function sampleCircuit(): CircuitState {
 			style: 'solid'
 		},
 		{
-			id: uuid(),
+			id: createId(),
 			fromComponentId: resistor.id,
 			fromPinId: '1',
 			toComponentId: battery.id,
@@ -164,7 +164,7 @@ export function addComponent(type: ComponentType, x: number, y: number) {
 	const item = PALETTE.find((p) => p.type === type);
 	circuit.update((state) => {
 		const comp: CircuitComponent = {
-			id: uuid(),
+			id: createId(),
 			refId: nextRefId(type),
 			type,
 			label: item?.label ?? type,
@@ -222,7 +222,7 @@ export function mirrorComponent(id: string) {
 export function addWire(wire: Omit<Wire, 'id'>) {
 	circuit.update((state) => ({
 		...state,
-		wires: [...state.wires, { ...wire, id: uuid() }]
+		wires: [...state.wires, { ...wire, id: createId() }]
 	}));
 }
 
