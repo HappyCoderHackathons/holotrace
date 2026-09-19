@@ -10,6 +10,7 @@ These documents describe intentions, not implemented behavior. Names, schemas, d
 - [Rendering and interaction](rendering-and-interaction.md): how the same circuit powers editable 2D and interactive 3D views.
 - [Simulation](simulation.md): how user interaction affects a running electrical simulation.
 - [Tiger Data](tiger-data.md): how PostgreSQL persists the component catalog, circuit versions, and selected simulation results.
+- [Schema](schema.sql.md): an annotated SQL draft for the PostgreSQL/Tiger Data model.
 
 ## Current direction
 
