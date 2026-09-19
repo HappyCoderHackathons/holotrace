@@ -16,7 +16,14 @@ from .contracts import (
 )
 from .labels import LABEL_SET_VERSION
 from .models import build_classifier, build_detector
-from .preprocess import PREPROCESS_VERSION, decode_grayscale, extract_crop, normalize_page, to_model_input
+from .preprocess import (
+    PREPROCESS_VERSION,
+    decode_grayscale,
+    extract_crop,
+    limit_size,
+    normalize_page,
+    to_model_input,
+)
 from .utils import pick_device
 
 
@@ -91,7 +98,11 @@ class Recognizer:
         meta = self.classifier_meta
         crops = [
             to_model_input(
-                extract_crop(page, tuple(v * scale for v in r.box.as_tuple()), meta["context_pad"]), meta["input_size"]
+                limit_size(
+                    extract_crop(page, tuple(v * scale for v in r.box.as_tuple()), meta["context_pad"]),
+                    meta["crop_max_side"],
+                ),
+                meta["input_size"],
             )
             for r in request.regions
         ]

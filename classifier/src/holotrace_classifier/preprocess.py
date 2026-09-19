@@ -6,7 +6,7 @@ and inference refuses to load a mismatched checkpoint.
 
 Pipeline:
     decode -> grayscale -> resize to PAGE_MAX_SIDE -> flatten illumination        (page level)
-    crop box with context padding                                                 (classifier only)
+    crop box with context padding, downscale to at most crop_max_side              (classifier only)
     invert to ink, robust contrast stretch, letterbox to a square float image    (classifier only)
 """
 
@@ -15,7 +15,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-PREPROCESS_VERSION = "gray-flat-v0"
+PREPROCESS_VERSION = "gray-flat-v1"
 
 # Pages are downscaled to this longest side so stroke width is roughly consistent across camera resolutions.
 PAGE_MAX_SIDE = 1600
@@ -77,6 +77,15 @@ def extract_crop(page: np.ndarray, box: Box, context_pad: float) -> np.ndarray:
     if any(borders):
         crop = cv2.copyMakeBorder(crop, *borders, cv2.BORDER_CONSTANT, value=255)
     return crop
+
+
+def limit_size(image: np.ndarray, max_side: int) -> np.ndarray:
+    """Downscale so the longest side is at most max_side. Stored training crops and live inference crops both pass
+    through this, which bounds disk use for exported crops without breaking train/inference parity."""
+    scale = max_side / max(image.shape)
+    if scale >= 1:
+        return image
+    return cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
 
 
 def letterbox(image: np.ndarray, size: int) -> np.ndarray:
