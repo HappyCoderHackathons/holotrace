@@ -31,6 +31,17 @@ The intended processing pipeline is:
 
 These are architectural intentions while the repository is being bootstrapped. Do not invent APIs, schemas, commands, or deployed infrastructure and present them as established. Record material new decisions in the repository when they are implemented.
 
+## Architecture reference
+
+The documents in `reference/` capture the current product and technical direction. Read the relevant documents before changing circuit representation, ML service contracts, rendering, simulation, component data, or persistence.
+
+- `reference/system-pipeline.md`: end-to-end recognition pipeline and canonical Circuit IR.
+- `reference/rendering-and-interaction.md`: shared 2D/3D rendering and interaction model.
+- `reference/simulation.md`: simulation boundaries, engine options, and validation requirements.
+- `reference/tiger-data.md`: PostgreSQL ownership, proposed records, versioning, and time-series data.
+
+These are working reference notes, not proof that an API, schema, dependency, or service has been implemented. Preserve the separation between the canonical circuit definition and its ML, layout, rendering, and simulation representations. Update the relevant reference document when an architectural decision changes.
+
 ## Engineering principles
 
 - Keep the client responsive and useful on resource-constrained mobile devices.
