@@ -135,7 +135,7 @@
   </section>
 
   <section class="tiles" id="system"></section>
-  <section class="card" id="logs"><h2>Log</h2><p class="sub" id="log-sub"></p><pre class="log" id="log"></pre></section>
+  <section class="grid2" id="logs"></section>
 </div>
 </div>
 <div class="tooltip" id="tooltip" role="tooltip"></div>
@@ -431,7 +431,18 @@ function runTiles() {
   box.replaceChildren();
   const d = state.detail;
   if (!d) {
-    box.append(tile("Runs", "None yet", { note: "Start a training run; it appears here automatically" }));
+    // Before the first run exists (download, import, crop export), surface the freshest log line instead
+    const latest = (state.system?.logs || [])
+      .filter((l) => l.lines.length && num(l.modified))
+      .sort((a, b) => b.modified - a.modified)[0];
+    const st = el("div", { class: "value status" });
+    const ic = icon("clock");
+    ic.style.color = "var(--warning)";
+    st.append(ic, document.createTextNode("Waiting for the first training run"));
+    box.append(tile("Status", "", {
+      node: st,
+      note: latest ? `Latest log line: ${latest.lines[latest.lines.length - 1]}` : "Runs appear here as soon as training starts",
+    }));
     return;
   }
   const s = d.summary, p = d.progress, recs = d.records, spec = SERIES[s.kind];
@@ -488,15 +499,26 @@ function systemTiles() {
   box.append(tile("Disk", `${fmtGB(s.disk.used)} / ${fmtGB(s.disk.total)} GB`, {
     meter: s.disk.used / s.disk.total, note: `${fmtGB(s.disk.total - s.disk.used)} GB free`,
   }));
+  // One pane per log, reused across refreshes so a reader's scroll position survives
+  const holder = $("logs");
   const logs = s.logs || [];
-  $("logs").style.display = logs.length ? "" : "none";
-  if (logs.length) {
-    $("log-sub").textContent = logs.map((l) => l.path).join(", ");
-    const pre = $("log");
+  while (holder.children.length > logs.length) holder.lastChild.remove();
+  logs.forEach((log, i) => {
+    let card = holder.children[i];
+    if (!card) {
+      card = el("div", { class: "card" });
+      card.append(el("h2"), el("p", { class: "sub" }), el("pre", { class: "log" }));
+      holder.append(card);
+    }
+    const [title, sub, pre] = card.children;
+    title.textContent = log.path.split(/[\\/]/).pop();
+    sub.textContent = num(log.modified)
+      ? `${log.path} · updated ${fmtDuration(Date.now() / 1000 - log.modified)} ago`
+      : `${log.path} · not created yet`;
     const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
-    pre.textContent = logs.map((l) => l.lines.join("\n")).join("\n\n");
+    pre.textContent = log.lines.length ? log.lines.join("\n") : "(empty)";
     if (atBottom) pre.scrollTop = pre.scrollHeight;
-  }
+  });
 }
 
 // ---------- data ----------
@@ -513,7 +535,7 @@ function renderRunSelect() {
     if (runKey(r) === state.selected) opt.selected = true;
     return opt;
   }));
-  select.disabled = !state.runs.length;
+  select.hidden = !state.runs.length;
 }
 async function refresh() {
   document.body.classList.add("loading");
