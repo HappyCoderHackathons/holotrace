@@ -1,28 +1,53 @@
-node_modules
+# Dependencies and package-manager caches
+node_modules/
+.bun/
+.pnpm-store/
 
-# Output
-.output
-.vercel
-.netlify
-.wrangler
-/.svelte-kit
-/build
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Env
-.env
-.env.*
-!.env.example
-!.env.test
-
-# Vite
+# SvelteKit, Vite, and deployment output
+.svelte-kit/
+.output/
+build/
+dist/
+.vercel/
+.netlify/
+.wrangler/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Custom
-.vscode/
-build/
+# Tauri and Rust build output
+target/
+src-tauri/target/
+
+# Environment files and local secrets
 .env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs, coverage, and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+.cache/
+.temp/
+.tmp/
+temp/
+tmp/
+
+# Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+
+# Operating systems
+.DS_Store
+Thumbs.db
+Desktop.ini
