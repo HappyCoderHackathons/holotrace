@@ -39,6 +39,8 @@ src/holotrace_classifier/
   train_detector.py      SGD + Nesterov, warmup + cosine, mAP@0.5 model selection
   contracts.py           PROVISIONAL request/response models (pydantic)
   inference.py           checkpoint loading with version checks, Recognizer
+  registry.py            promote runs into a versioned model registry
+  service.py             Flask recognition service over the registry
   cli.py                 `holotrace-ml` entry point
 ```
 
@@ -58,12 +60,13 @@ uv run holotrace-ml --help
 
 ### CGHD (public)
 
-[CGHD](https://github.com/DFKI/cghd) has about 3,000 photos of hand-drawn circuits from 30 drafters, with Pascal VOC bounding boxes. `labels.py` uses its class names. Before you use it for anything beyond experiments, check the dataset license in that repository.
+[CGHD](https://github.com/DFKI/cghd) has about 3,000 photos of hand-drawn circuits from 30 drafters, with Pascal VOC bounding boxes. `labels.py` uses its class names. It is licensed CC-BY-4.0 ([Zenodo record](https://zenodo.org/records/14042961)), so any model trained on it must credit the dataset wherever that model is distributed or documented.
 
-Download it from the repository, [Zenodo](https://zenodo.org/records/14042961), or [Hugging Face](https://huggingface.co/datasets/lowercaseonly/cghd). Unpack it so you have `<root>/drafter_*/images` and `<root>/drafter_*/annotations`. Then run:
+The [Hugging Face mirror](https://huggingface.co/datasets/lowercaseonly/cghd) stores it as individual files, which downloads much faster than the single Zenodo zip. Images and annotations are enough:
 
 ```sh
-uv run holotrace-ml import-cghd --root /path/to/cghd --out data/manifests
+uvx --from huggingface_hub hf download lowercaseonly/cghd --repo-type dataset --local-dir ~/datasets/cghd   --max-workers 16 --include "drafter_*/images/*" --include "drafter_*/annotations/*"
+uv run holotrace-ml import-cghd --root ~/datasets/cghd --out data/manifests
 ```
 
 Splits are made per drafter, with 3 drafters each for val and test by default. A split made per image would leak each person's handwriting into evaluation and overstate accuracy. The import writes `data/manifests/import_report.json`. It lists kept label counts and the CGHD labels that were skipped because they are not in `labels.py`.
@@ -100,18 +103,59 @@ Each run directory contains `config.json`, `metrics.jsonl` (one line per epoch),
 
 The training server is a CPU-only Linux VM reachable over Tailscale. Keep credentials out of this repository; use SSH keys and never commit hostnames with passwords.
 
+The repository is private and the server has no GitHub credentials, so code is sent as a git bundle:
+
 ```sh
-# on the server
-git clone <repo> holotrace && cd holotrace/classifier
-uv sync
-# put CGHD under ~/datasets/cghd, then:
+# on your machine
+git bundle create holotrace.bundle feat/classifier
+scp holotrace.bundle <user>@<server>:
+
+# on the server (first time: git clone -b feat/classifier ~/holotrace.bundle ~/holotrace)
+cd ~/holotrace && git pull ~/holotrace.bundle feat/classifier
+cd classifier && uv sync
 uv run holotrace-ml import-cghd --root ~/datasets/cghd --out data/manifests
 uv run holotrace-ml export-crops
-nohup uv run holotrace-ml train-classifier > runs/classifier.log 2>&1 &
+mkdir -p runs && tmux new -d -s train "uv run holotrace-ml train-classifier 2>&1 | tee runs/classifier.log"
 tail -f runs/classifier.log
 ```
 
 Set `num_workers` in the configs to about the number of cores minus two. On CPU, expect the classifier to take minutes per epoch and the MobileNet detector to take much longer. Train and tune the classifier first.
+
+## Serving trained models
+
+Training and serving are connected by a model registry (`models/`, git-ignored). A trained model is only served once it is promoted:
+
+```sh
+# on the training server, after reviewing the eval report
+uv run holotrace-ml promote --run runs/classifier/<run>
+uv run holotrace-ml promote --run runs/detector/<run>
+```
+
+`promote` copies the checkpoint into `models/<kind>/<model_version>/` with a `card.json` (source run, metrics, label and preprocessing versions, sha256), then updates `models/<kind>/CURRENT`. It refuses to replace the current model with one that scores lower on validation unless `--force` is given.
+
+The registry is self-contained, so deploying to the separate serving host is a copy followed by a reload:
+
+```sh
+rsync -a models/ <serving-host>:holotrace/classifier/models/
+curl -X POST -H "Authorization: Bearer $HOLOTRACE_ML_API_KEY" http://<serving-host>:8000/v0/admin/reload
+```
+
+On the serving host:
+
+```sh
+uv sync --extra serve
+cp .env.example .env   # set HOLOTRACE_ML_API_KEY, then export it into the environment
+uv run holotrace-ml serve --registry models --host <tailscale-ip> --port 8000
+```
+
+| Route | Auth | Purpose |
+| --- | --- | --- |
+| `GET /health` | none | liveness |
+| `GET /v0/models` | key | versions currently loaded |
+| `POST /v0/recognize` | key | multipart `image` file + `request` (RecognitionRequest JSON) -> RecognitionResult |
+| `POST /v0/admin/reload` | key | re-read `CURRENT` and swap models without a restart |
+
+The service verifies each checkpoint against its card's sha256 before loading it. It returns 400 for an invalid request, 422 for an image it cannot decode or whose size disagrees with the request, and 413 for uploads over `--max-upload-mb`. Request bodies are not logged. The API key is server-side only: the Tauri client must reach this service through a backend that holds the key, never with the key embedded in the app. Bind to the Tailscale IP, not `0.0.0.0`.
 
 ## Design notes
 
@@ -139,6 +183,6 @@ Set `num_workers` in the configs to about the number of cores minus two. On CPU,
 
 - Calibrate classifier confidences (temperature scaling on val) before the client relies on thresholds.
 - Wire and junction extraction (segmentation or line tracing) to build nets.
-- An HTTP service wrapper around `Recognizer`.
+- Client-facing auth: a backend that holds the service key and authenticates users.
 - ONNX or TorchScript export for serving.
 - Cache decoded, resized pages to speed up detector epochs on CPU.
