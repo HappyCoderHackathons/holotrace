@@ -11,7 +11,16 @@ from .labels import LABEL_SET_VERSION, LABELS
 from .metrics import classification_report, confusion_matrix
 from .models import build_classifier
 from .preprocess import PREPROCESS_VERSION
-from .utils import JsonlLogger, make_run_dir, param_groups, pick_device, seed_everything, warmup_cosine
+from .utils import (
+    JsonlLogger,
+    Progress,
+    make_run_dir,
+    param_groups,
+    pick_device,
+    seed_everything,
+    warmup_cosine,
+    write_json_atomic,
+)
 
 
 @torch.inference_mode()
@@ -62,6 +71,7 @@ def train_classifier(config: ClassifierConfig) -> Path:
     run_dir = make_run_dir(config.output_dir, config.run_name)
     (run_dir / "config.json").write_text(config_to_json(config), encoding="utf-8")
     logger = JsonlLogger(run_dir / "metrics.jsonl")
+    progress = Progress(run_dir, optim.epochs, steps)
     print(f"device={device} train={len(train_set)} val={len(val_set)} run_dir={run_dir}", flush=True)
 
     def checkpoint(epoch: int, metrics: dict) -> dict:
@@ -86,7 +96,8 @@ def train_classifier(config: ClassifierConfig) -> Path:
         running_loss = torch.zeros((), device=device)
         correct = torch.zeros((), device=device)
         seen = 0
-        for x, y in train_loader:
+        for step, (x, y) in enumerate(train_loader, 1):
+            progress.update("train", epoch, step)
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
             with torch.autocast(device.type, enabled=use_amp):
                 logits = model(x)
@@ -102,6 +113,7 @@ def train_classifier(config: ClassifierConfig) -> Path:
             correct += (logits.argmax(1) == y).sum()
             seen += len(y)
 
+        progress.update("eval", epoch, steps, force=True)
         val = evaluate_classifier(model, val_loader, device)
         logger.log(
             {
@@ -117,6 +129,7 @@ def train_classifier(config: ClassifierConfig) -> Path:
         if val["macro_f1"] > best:
             best, stale = val["macro_f1"], 0
             torch.save(checkpoint(epoch, val), run_dir / "best.pt")
+            write_json_atomic(run_dir / "best_metrics.json", {"epoch": epoch} | val)
         else:
             stale += 1
             if stale >= optim.early_stop_patience:
@@ -124,4 +137,5 @@ def train_classifier(config: ClassifierConfig) -> Path:
                 break
 
     torch.save(checkpoint(epoch, val), run_dir / "last.pt")
+    progress.update("stopped" if epoch < optim.epochs else "done", epoch, steps, force=True)
     return run_dir

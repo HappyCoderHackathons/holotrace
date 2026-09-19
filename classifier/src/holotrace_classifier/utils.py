@@ -1,6 +1,8 @@
 import json
 import math
+import os
 import random
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -51,12 +53,34 @@ def warmup_cosine(optimizer: torch.optim.Optimizer, total_steps: int, warmup_ste
     return LambdaLR(optimizer, factor)
 
 
+def write_json_atomic(path: Path, data: object) -> None:
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 class JsonlLogger:
     def __init__(self, path: Path) -> None:
         self.path = path
 
     def log(self, record: dict) -> None:
         with self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(record) + "\n")
+            fh.write(json.dumps(record | {"time": time.time()}) + "\n")
         summary = " ".join(f"{k}={v:.4f}" if isinstance(v, float) else f"{k}={v}" for k, v in record.items())
         print(summary, flush=True)
+
+
+class Progress:
+    """Throttled progress.json in the run directory, read by the training dashboard."""
+
+    def __init__(self, run_dir: Path, epochs: int, steps: int, every_seconds: float = 5.0) -> None:
+        self.path = run_dir / "progress.json"
+        self.base = {"epochs": epochs, "steps": steps, "started": time.time()}
+        self.every_seconds = every_seconds
+        self._last = 0.0
+
+    def update(self, phase: str, epoch: int, step: int, *, force: bool = False) -> None:
+        now = time.time()
+        if force or now - self._last >= self.every_seconds:
+            self._last = now
+            write_json_atomic(self.path, self.base | {"phase": phase, "epoch": epoch, "step": step, "time": now})
