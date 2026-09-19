@@ -9,8 +9,9 @@ These documents describe intentions, not implemented behavior. Names, schemas, d
 - [System pipeline](system-pipeline.md): how a photograph becomes a validated circuit.
 - [Rendering and interaction](rendering-and-interaction.md): how the same circuit powers editable 2D and interactive 3D views.
 - [Simulation](simulation.md): how user interaction affects a running electrical simulation.
-- [Tiger Data](tiger-data.md): how PostgreSQL persists the component catalog, circuit versions, and selected simulation results.
-- [Schema](schema.sql.md): an annotated SQL draft for the PostgreSQL/Tiger Data model.
+- [PostgreSQL](postgresql.md): how PostgreSQL persists the component catalog, circuit versions, and selected simulation results.
+- [Schema](schema.sql.md): an annotated SQL draft for the PostgreSQL model.
+- [Circuit normalization](circuit-normalization.md): provisional OpenCV wire-graph, pin-template, and Circuit IR flow.
 
 ## Current direction
 
