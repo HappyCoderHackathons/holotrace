@@ -1,3 +1,11 @@
+## Project Configuration
+
+- **Language**: TypeScript
+- **Package Manager**: bun
+- **Add-ons**: none
+
+---
+
 # AGENTS.md
 
 This file provides repository-wide guidance for coding agents and human contributors.
