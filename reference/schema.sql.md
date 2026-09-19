@@ -1,6 +1,6 @@
-# Draft PostgreSQL and Tiger Data schema
+# Draft PostgreSQL schema
 
-This document proposes a relational schema for Holotrace. It is an architecture reference, not a migration and not evidence that these tables exist. Before implementation, validate it against the selected authentication system, API access patterns, Tiger Data service version, retention requirements, and the first supported component set.
+This document proposes a relational schema for Holotrace. It is an architecture reference, not a migration and not evidence that these tables exist. Before implementation, validate it against the selected authentication system, API access patterns, PostgreSQL version, retention requirements, and the first supported component set.
 
 The design has four main boundaries:
 
@@ -13,11 +13,9 @@ Large images, firmware, GLB files, textures, and waveform exports belong in obje
 
 ## Database features
 
-Tiger Cloud provides PostgreSQL and TimescaleDB. Current Tiger Data services support creating hypertables with table storage parameters; confirm the deployed service version before turning this draft into migrations.
+Holotrace uses standard PostgreSQL in a Docker container. The schema must not depend on provider-specific extensions.
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS timescaledb;
-
 CREATE SCHEMA IF NOT EXISTS holotrace;
 ```
 
@@ -184,6 +182,8 @@ CREATE TABLE holotrace.component_representation (
     detail_level        integer NOT NULL DEFAULT 0 CHECK (detail_level >= 0),
     metadata            jsonb NOT NULL DEFAULT '{}'::jsonb,
     created_at          timestamptz NOT NULL DEFAULT now(),
+    FOREIGN KEY (package_id, component_id)
+        REFERENCES holotrace.component_package(id, component_id) ON DELETE CASCADE,
     UNIQUE NULLS NOT DISTINCT (
         component_id,
         package_id,
@@ -227,7 +227,7 @@ CREATE TABLE holotrace.simulation_model (
 CREATE TABLE holotrace.component_simulation_model (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     component_id    uuid NOT NULL REFERENCES holotrace.component_definition(id) ON DELETE CASCADE,
-    package_id      uuid REFERENCES holotrace.component_package(id) ON DELETE CASCADE,
+    package_id      uuid,
     engine_id       uuid NOT NULL REFERENCES holotrace.simulation_engine(id),
     model_id        uuid NOT NULL,
     pin_mapping     jsonb NOT NULL,
@@ -236,16 +236,21 @@ CREATE TABLE holotrace.component_simulation_model (
     is_default      boolean NOT NULL DEFAULT false,
     FOREIGN KEY (model_id, engine_id)
         REFERENCES holotrace.simulation_model(id, engine_id),
+    FOREIGN KEY (package_id, component_id)
+        REFERENCES holotrace.component_package(id, component_id) ON DELETE CASCADE,
     UNIQUE NULLS NOT DISTINCT (component_id, package_id, model_id)
 );
 
-CREATE UNIQUE INDEX component_default_simulation_model_uq
+CREATE UNIQUE INDEX component_default_simulation_model_for_package_uq
     ON holotrace.component_simulation_model (component_id, package_id, engine_id)
-    NULLS NOT DISTINCT
-    WHERE is_default;
+    WHERE is_default AND package_id IS NOT NULL;
+
+CREATE UNIQUE INDEX component_default_simulation_model_without_package_uq
+    ON holotrace.component_simulation_model (component_id, engine_id)
+    WHERE is_default AND package_id IS NULL;
 ```
 
-The default-model index permits one component-wide or package-specific default per engine. `NULLS NOT DISTINCT` ensures that multiple rows with no package do not bypass uniqueness.
+The two default-model indexes permit one component-wide default and one default per package and engine. Splitting the nullable and non-null package cases avoids PostgreSQL's default treatment of `NULL` values as distinct.
 
 ## ML recognition
 
@@ -344,6 +349,7 @@ CREATE TABLE holotrace.circuit_version (
     parent_version_id   uuid,
     recognition_job_id  uuid REFERENCES holotrace.recognition_job(id),
     schema_version      integer NOT NULL DEFAULT 1 CHECK (schema_version > 0),
+    ir_schema_version   text NOT NULL DEFAULT 'circuit-ir-v0' CHECK (length(ir_schema_version) > 0),
     status              text NOT NULL CHECK (status IN (
                             'recognized',
                             'needs_review',
@@ -360,11 +366,14 @@ CREATE TABLE holotrace.circuit_version (
     UNIQUE (id, circuit_id)
 );
 
+-- schema_version tracks the relational storage shape; ir_schema_version
+-- records the typed Circuit IR contract, such as circuit-ir-v0.
+
 CREATE TABLE holotrace.component_instance (
     id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     circuit_version_id      uuid NOT NULL REFERENCES holotrace.circuit_version(id) ON DELETE CASCADE,
     component_id            uuid REFERENCES holotrace.component_definition(id),
-    package_id              uuid REFERENCES holotrace.component_package(id),
+    package_id              uuid,
     source_detection_id     uuid REFERENCES holotrace.recognition_detection(id),
     reference_designator    text NOT NULL,
     display_name            text,
@@ -376,6 +385,9 @@ CREATE TABLE holotrace.component_instance (
                                 'ambiguous',
                                 'unknown'
                             )),
+    FOREIGN KEY (package_id, component_id)
+        REFERENCES holotrace.component_package(id, component_id),
+    CHECK (package_id IS NULL OR component_id IS NOT NULL),
     UNIQUE (circuit_version_id, reference_designator),
     UNIQUE (id, circuit_version_id)
 );
@@ -565,7 +577,7 @@ CREATE TABLE holotrace.simulation_signal (
 );
 ```
 
-## Tiger Data time-series samples
+## Sampled simulation values
 
 Only selected or downsampled output belongs here. Do not insert every internal solver iteration. Batch writes and define retention or tiering only after measuring real product usage.
 
@@ -581,16 +593,13 @@ CREATE TABLE holotrace.simulation_sample (
         REFERENCES holotrace.simulation_signal(id, session_id)
         ON DELETE CASCADE,
     PRIMARY KEY (sampled_at, session_id, signal_id)
-) WITH (
-    tsdb.hypertable,
-    tsdb.partition_column = 'sampled_at'
 );
 
 CREATE INDEX simulation_sample_signal_time_idx
     ON holotrace.simulation_sample (session_id, signal_id, sampled_at DESC);
 ```
 
-Tiger Data requires unique indexes on a hypertable to include its partitioning dimension, which is why `sampled_at` participates in the primary key. If the deployed TimescaleDB version predates the storage-parameter syntax, create a regular table first and convert it with `create_hypertable` instead.
+This is a regular PostgreSQL table. The timestamp participates in the primary key so a signal can retain multiple samples. The secondary index supports fetching a signal in reverse chronological order. Revisit native PostgreSQL partitioning only after measured usage shows it is necessary.
 
 ## Saved simulation artifacts
 
@@ -615,12 +624,10 @@ Before production, define and test policies for every workspace-owned access pat
 The first migration design should explicitly decide how to enforce these rules:
 
 - A package and all of its package pins belong to the same component definition.
-- A selected package belongs to the component selected by a component instance.
 - Recognition detections and source artifacts belong to the same project or workspace as their circuit.
 - Validation targets belong to the referenced circuit version.
 - Simulation-signal source objects belong to the session's circuit version.
 - Circuit versions become immutable after publication.
-- Exactly one appropriate default simulation model exists per engine, component, and optional package.
 - Artifact access cannot cross workspace authorization boundaries.
 - Deleting user-facing records does not accidentally erase data that must be retained for audit, billing, or consent history.
 
@@ -628,8 +635,7 @@ Prefer composite foreign keys for structural invariants, database constraints fo
 
 ## References
 
-- [Tiger Data hypertable example](https://docs.tigerdata.com/integrations/latest/amazon-sagemaker/)
-- [Tiger Data hypertable limitations](https://docs.tigerdata.com/timescaledb/latest/overview/limitations/)
-- [Tiger Data PostgreSQL extensions](https://docs.tigerdata.com/use-timescale/latest/extensions)
+- [PostgreSQL partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html)
+- [PostgreSQL table partitioning](https://www.postgresql.org/docs/current/ddl-partitioning.html)
 - [PostgreSQL JSONB indexing](https://www.postgresql.org/docs/current/datatype-json.html#JSON-INDEXING)
 - [PostgreSQL row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html)

@@ -3,20 +3,8 @@
 // Notes on things Drizzle can't express 1:1 with the SQL doc:
 //   - `sha256 ~ '^[0-9a-f]{64}$'` and all enum-style `CHECK (... IN (...))`
 //     constraints are reproduced with `check()`.
-//   - `UNIQUE NULLS NOT DISTINCT (...)` uses `.nullsNotDistinct()`, but that
-//     method only exists on the `unique()` table-constraint builder, not on
-//     `index()`/`uniqueIndex()`. Postgres 15+ required either way. Where the
-//     doc combines NULLS NOT DISTINCT with a partial (WHERE-qualified)
-//     index, there's no typed Drizzle API for that combination — see the
-//     comment on `component_default_simulation_model_uq` below.
 //   - `bigint` uses `{ mode: "number" }` for convenience; switch to
 //     `{ mode: "bigint" }` if byte sizes can exceed Number.MAX_SAFE_INTEGER.
-//   - The `simulation_sample` hypertable conversion
-//     (`WITH (tsdb.hypertable, tsdb.partition_column = 'sampled_at')`) has
-//     no Drizzle table-option equivalent — it's called out in a comment
-//     on that table and needs a raw SQL statement in your migration
-//     (or `create_hypertable(...)` if the storage-parameter syntax isn't
-//     available on your Tiger Data service version).
 //   - Row-level security policies are a service-level/API concern per the
 //     doc ("do not add permissive placeholder policies") and are
 //     intentionally not modeled here.
@@ -230,10 +218,8 @@ export const packagePin = holotrace.table(
   (t) => [
     unique("package_pin_package_id_component_pin_id_uq").on(t.packageId, t.componentPinId),
     unique("package_pin_package_id_physical_label_uq").on(t.packageId, t.physicalLabel),
-    // App-level invariant (not a DB constraint yet, per the doc): each
-    // package_pin.component_pin_id must belong to the same component
-    // definition as its package. Candidate for a composite FK once
-    // catalog write patterns are settled.
+    // The service must verify that the package and logical pin belong to
+    // the same component until the write model can carry a composite key.
   ],
 );
 
@@ -334,20 +320,22 @@ export const componentSimulationModel = holotrace.table(
       foreignColumns: [simulationModel.id, simulationModel.engineId],
       name: "component_simulation_model_model_engine_fk",
     }),
+    foreignKey({
+      columns: [t.packageId, t.componentId],
+      foreignColumns: [componentPackage.id, componentPackage.componentId],
+      name: "component_simulation_model_package_component_fk",
+    }).onDelete("cascade"),
     unique("component_simulation_model_uq")
       .on(t.componentId, t.packageId, t.modelId)
       .nullsNotDistinct(),
-    // Partial unique index: one default per (component, package, engine).
-    // The doc's version is also NULLS NOT DISTINCT, but Drizzle's index
-    // builder has no nulls-not-distinct method (that's only on the plain
-    // `unique()` constraint builder, which in turn doesn't support WHERE).
-    // This generates a plain partial unique index; add
-    // `NULLS NOT DISTINCT` by hand to the generated migration's
-    // `CREATE UNIQUE INDEX ... WHERE "is_default"` statement to match the
-    // doc exactly.
-    uniqueIndex("component_default_simulation_model_uq")
+    // Separate nullable and non-null package cases so PostgreSQL cannot
+    // accept multiple component-wide defaults because NULLs are distinct.
+    uniqueIndex("component_default_simulation_model_for_package_uq")
       .on(t.componentId, t.packageId, t.engineId)
-      .where(sql`${t.isDefault}`),
+      .where(sql`${t.isDefault} AND ${t.packageId} IS NOT NULL`),
+    uniqueIndex("component_default_simulation_model_without_package_uq")
+      .on(t.componentId, t.engineId)
+      .where(sql`${t.isDefault} AND ${t.packageId} IS NULL`),
   ],
 );
 
@@ -461,6 +449,7 @@ export const circuitVersion = holotrace.table(
     parentVersionId: uuid("parent_version_id"),
     recognitionJobId: uuid("recognition_job_id").references(() => recognitionJob.id),
     schemaVersion: integer("schema_version").notNull().default(1),
+    irSchemaVersion: text("ir_schema_version").notNull().default("circuit-ir-v0"),
     status: text("status").notNull(),
     changeSummary: text("change_summary"),
     createdBy: uuid("created_by").notNull().references(() => appUser.id),
@@ -478,6 +467,7 @@ export const circuitVersion = holotrace.table(
     unique("circuit_version_id_circuit_id_uq").on(t.id, t.circuitId),
     check("circuit_version_number_check", sql`${t.versionNumber} > 0`),
     check("circuit_version_schema_version_check", sql`${t.schemaVersion} > 0`),
+    check("circuit_version_ir_schema_version_check", sql`length(${t.irSchemaVersion}) > 0`),
     check(
       "circuit_version_status_check",
       sql`${t.status} IN ('recognized', 'needs_review', 'electrically_valid', 'simulatable', 'archived')`,
@@ -493,7 +483,7 @@ export const componentInstance = holotrace.table(
       .notNull()
       .references(() => circuitVersion.id, { onDelete: "cascade" }),
     componentId: uuid("component_id").references(() => componentDefinition.id),
-    packageId: uuid("package_id").references(() => componentPackage.id),
+    packageId: uuid("package_id"),
     sourceDetectionId: uuid("source_detection_id").references(() => recognitionDetection.id),
     referenceDesignator: text("reference_designator").notNull(),
     displayName: text("display_name"),
@@ -502,6 +492,11 @@ export const componentInstance = holotrace.table(
     resolutionState: text("resolution_state").notNull().default("resolved"),
   },
   (t) => [
+    foreignKey({
+      columns: [t.packageId, t.componentId],
+      foreignColumns: [componentPackage.id, componentPackage.componentId],
+      name: "component_instance_package_component_fk",
+    }),
     unique("component_instance_circuit_version_id_reference_designator_uq").on(
       t.circuitVersionId,
       t.referenceDesignator,
@@ -514,6 +509,10 @@ export const componentInstance = holotrace.table(
     check(
       "component_instance_resolution_state_check",
       sql`${t.resolutionState} IN ('resolved', 'inferred', 'ambiguous', 'unknown')`,
+    ),
+    check(
+      "component_instance_package_requires_component_check",
+      sql`${t.packageId} IS NULL OR ${t.componentId} IS NOT NULL`,
     ),
   ],
 );
@@ -770,19 +769,11 @@ export const simulationSignal = holotrace.table(
 );
 
 // ---------------------------------------------------------------------------
-// Tiger Data time-series samples
+// Sampled simulation values
 // ---------------------------------------------------------------------------
-//
-// IMPORTANT: this table is meant to become a TimescaleDB hypertable
-// partitioned on `sampled_at`, per the doc's
-//   WITH (tsdb.hypertable, tsdb.partition_column = 'sampled_at')
-// Drizzle has no table-option builder for this. After generating a
-// migration from this table, add a raw SQL statement to either:
-//   1. apply the storage parameter directly (if your Tiger Data service
-//      version supports it), or
-//   2. create the table as regular Postgres and call
-//      `SELECT create_hypertable('holotrace.simulation_sample', 'sampled_at');`
-// Only insert selected/downsampled output here — not every solver tick.
+// This is an ordinary PostgreSQL table. Only insert selected/downsampled
+// output here, not every solver tick. Native partitioning can be introduced
+// later if measured usage warrants it.
 
 export const simulationSample = holotrace.table(
   "simulation_sample",
@@ -800,8 +791,6 @@ export const simulationSample = holotrace.table(
       foreignColumns: [simulationSignal.id, simulationSignal.sessionId],
       name: "simulation_sample_signal_session_fk",
     }).onDelete("cascade"),
-    // `sampled_at` must lead the primary key so it can serve as the
-    // hypertable's partitioning dimension.
     primaryKey({ columns: [t.sampledAt, t.sessionId, t.signalId] }),
     index("simulation_sample_signal_time_idx").on(t.sessionId, t.signalId, t.sampledAt.desc()),
   ],
