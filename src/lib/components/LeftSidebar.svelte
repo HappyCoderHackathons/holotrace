@@ -2,11 +2,15 @@
 	import { ChevronLeft, ChevronRight, ImageUp, CheckCircle2, Layers } from 'lucide-svelte';
 	import { leftSidebarOpen, circuit } from '$lib/stores/circuit';
 
-	export let onUploadClick: () => void = () => {};
+	interface Props {
+		onUploadClick?: () => void;
+	}
 
-	$: detection = $circuit.detection;
-	$: componentCount = $circuit.components.length;
-	$: wireCount = $circuit.wires.length;
+	let { onUploadClick = () => {} }: Props = $props();
+
+	const detection = $derived($circuit.detection);
+	const componentCount = $derived($circuit.components.length);
+	const wireCount = $derived($circuit.wires.length);
 </script>
 
 {#if $leftSidebarOpen}
@@ -16,7 +20,7 @@
 			<button
 				class="rounded p-1 text-ink-500 hover:bg-surface-100"
 				aria-label="Collapse sidebar"
-				on:click={() => leftSidebarOpen.set(false)}
+				onclick={() => leftSidebarOpen.set(false)}
 			>
 				<ChevronLeft size={16} />
 			</button>
@@ -25,7 +29,7 @@
 		<div class="thin-scroll flex-1 overflow-y-auto p-4">
 			<button
 				class="group relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-lg border border-dashed border-surface-300 bg-surface-50 hover:border-accent"
-				on:click={onUploadClick}
+				onclick={onUploadClick}
 			>
 				{#if detection.sourceImage}
 					<img
@@ -78,7 +82,7 @@
 
 			<button
 				class="mt-4 w-full rounded-lg border border-surface-200 py-2 text-xs font-medium text-ink-700 hover:bg-surface-100"
-				on:click={onUploadClick}
+				onclick={onUploadClick}
 			>
 				Upload a different sketch
 			</button>
@@ -88,7 +92,7 @@
 	<button
 		class="flex w-8 flex-shrink-0 items-center justify-center border-r border-surface-200 bg-white hover:bg-surface-100"
 		aria-label="Expand sidebar"
-		on:click={() => leftSidebarOpen.set(true)}
+		onclick={() => leftSidebarOpen.set(true)}
 	>
 		<ChevronRight size={16} class="text-ink-500" />
 	</button>

@@ -10,7 +10,7 @@
 	import UploadModal from '$lib/components/UploadModal.svelte';
 	import { viewMode, editMode, deleteSelected } from '$lib/stores/circuit';
 
-	let uploadOpen = false;
+	let uploadOpen = $state(false);
 
 	function handleKeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;

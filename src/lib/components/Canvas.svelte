@@ -15,49 +15,41 @@
 		addWireWaypoint,
 		removeWireWaypoint
 	} from '$lib/stores/circuit';
-	import { simulation } from '$lib/stores/simulation';
-	import { toggleSwitch, switchStates } from '$lib/stores/simulation';
+	import { simulation, toggleSwitch, switchStates } from '$lib/stores/simulation';
+	import { pinWorldPos } from '$lib/geometry';
 	import CanvasComponent from './CanvasComponent.svelte';
 	import WireLayer from './WireLayer.svelte';
 	import type { ComponentType } from '$lib/types';
+	import { COMPONENT_TYPES } from '$lib/componentLibrary';
 
-	export let editable: boolean = false;
-	export let showGrid: boolean = true;
-	export let schematic: boolean = false;
+	interface Props {
+		editable?: boolean;
+		showGrid?: boolean;
+		schematic?: boolean;
+	}
 
-	let svgEl: SVGSVGElement;
-	let containerEl: HTMLDivElement;
-	let isPanning = false;
+	let { editable = false, showGrid = true, schematic = false }: Props = $props();
+
+	const MIN_ZOOM = 0.4;
+	const MAX_ZOOM = 2.5;
+
+	let svgEl = $state<SVGSVGElement | undefined>();
+	let isPanning = $state(false);
 	let panStart = { x: 0, y: 0 };
 	let panOrigin = { x: 0, y: 0 };
 
 	let draggingId: string | null = null;
 	let dragOffset = { x: 0, y: 0 };
-	let wireStart: { componentId: string; pinId: string } | null = null;
-	let wireCursor: { x: number; y: number } | null = null;
+	let wireStart = $state<{ componentId: string; pinId: string } | null>(null);
+	let wireCursor = $state<{ x: number; y: number } | null>(null);
 	let draggingWaypoint: { wireId: string; index: number } | null = null;
 
-	function pinWorldPos(compId: string, pinId: string): { x: number; y: number } | null {
-		const comp = $circuit.components.find((c) => c.id === compId);
-		if (!comp) return null;
-		const pin = comp.pins.find((p) => p.id === pinId);
-		if (!pin) return null;
-		const rad = (comp.rotation * Math.PI) / 180;
-		const mirror = comp.mirrored ? -1 : 1;
-		const px = pin.x * mirror;
-		const py = pin.y;
-		const rx = px * Math.cos(rad) - py * Math.sin(rad);
-		const ry = px * Math.sin(rad) + py * Math.cos(rad);
-		return { x: comp.x + rx, y: comp.y + ry };
-	}
-
 	function screenToWorld(clientX: number, clientY: number) {
+		if (!svgEl) return { x: 0, y: 0 };
 		const rect = svgEl.getBoundingClientRect();
-		const zoom = $canvasZoom;
-		const pan = $canvasPan;
 		return {
-			x: (clientX - rect.left - pan.x) / zoom,
-			y: (clientY - rect.top - pan.y) / zoom
+			x: (clientX - rect.left - $canvasPan.x) / $canvasZoom,
+			y: (clientY - rect.top - $canvasPan.y) / $canvasZoom
 		};
 	}
 
@@ -75,13 +67,15 @@
 				x: panOrigin.x + (e.clientX - panStart.x),
 				y: panOrigin.y + (e.clientY - panStart.y)
 			});
-		} else if (draggingId && editable) {
+		} else if (!editable) {
+			return;
+		} else if (draggingId) {
 			const world = screenToWorld(e.clientX, e.clientY);
 			moveComponent(draggingId, world.x - dragOffset.x, world.y - dragOffset.y);
-		} else if (draggingWaypoint && editable) {
+		} else if (draggingWaypoint) {
 			const world = screenToWorld(e.clientX, e.clientY);
 			updateWireWaypoint(draggingWaypoint.wireId, draggingWaypoint.index, world.x, world.y);
-		} else if (wireStart && editable) {
+		} else if (wireStart) {
 			wireCursor = screenToWorld(e.clientX, e.clientY);
 		}
 	}
@@ -90,23 +84,24 @@
 		isPanning = false;
 		draggingId = null;
 		draggingWaypoint = null;
+		// A pointerup that did not land on a pin abandons the in-progress wire,
+		// otherwise the rubber-band line follows the cursor indefinitely.
+		wireStart = null;
+		wireCursor = null;
 	}
 
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
 		const delta = -e.deltaY * 0.0015;
-		canvasZoom.update((z) => Math.min(2.5, Math.max(0.4, z + delta)));
+		canvasZoom.update((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z + delta)));
 	}
 
 	function handleComponentPointerDown(e: PointerEvent, id: string) {
 		e.stopPropagation();
-		if (!editable) {
-			selectedIds.set(new Set([id]));
-			selectedWireIds.set(new Set());
-			return;
-		}
 		selectedIds.set(new Set([id]));
 		selectedWireIds.set(new Set());
+		if (!editable) return;
+
 		const comp = $circuit.components.find((c) => c.id === id);
 		if (!comp) return;
 		const world = screenToWorld(e.clientX, e.clientY);
@@ -125,7 +120,22 @@
 	function handlePinPointerUp(e: PointerEvent, componentId: string, pinId: string) {
 		e.stopPropagation();
 		if (!wireStart || !editable) return;
-		if (wireStart.componentId !== componentId || wireStart.pinId !== pinId) {
+
+		const isSamePin =
+			wireStart.componentId === componentId && wireStart.pinId === pinId;
+		const alreadyWired = $circuit.wires.some(
+			(w) =>
+				(w.fromComponentId === wireStart!.componentId &&
+					w.fromPinId === wireStart!.pinId &&
+					w.toComponentId === componentId &&
+					w.toPinId === pinId) ||
+				(w.toComponentId === wireStart!.componentId &&
+					w.toPinId === wireStart!.pinId &&
+					w.fromComponentId === componentId &&
+					w.fromPinId === pinId)
+		);
+
+		if (!isSamePin && !alreadyWired) {
 			addWire({
 				fromComponentId: wireStart.componentId,
 				fromPinId: wireStart.pinId,
@@ -137,7 +147,6 @@
 		}
 		wireStart = null;
 		wireCursor = null;
-		selectedIds.set(new Set());
 	}
 
 	function handleWaypointPointerDown(e: PointerEvent, wireId: string, index: number) {
@@ -146,13 +155,7 @@
 		draggingWaypoint = { wireId, index };
 	}
 
-	function handleWaypointDoubleClick(e: MouseEvent, wireId: string, index: number) {
-		e.stopPropagation();
-		if (!editable) return;
-		removeWireWaypoint(wireId, index);
-	}
-
-	function handleWireDoubleClick(e: MouseEvent, wireId: string) {
+	function handleWireAddWaypoint(e: MouseEvent, wireId: string) {
 		e.stopPropagation();
 		if (!editable) return;
 		const world = screenToWorld(e.clientX, e.clientY);
@@ -174,36 +177,40 @@
 
 	function handleDrop(e: DragEvent) {
 		e.preventDefault();
-		const type = e.dataTransfer?.getData('component-type') as ComponentType | undefined;
-		if (!type || !svgEl) return;
+		const type = e.dataTransfer?.getData('component-type');
+		if (!type || !COMPONENT_TYPES.includes(type as ComponentType)) return;
 		const world = screenToWorld(e.clientX, e.clientY);
-		addComponent(type, world.x, world.y);
+		addComponent(type as ComponentType, world.x, world.y);
 	}
 
 	function handleDragOver(e: DragEvent) {
 		e.preventDefault();
 	}
 
-	$: transform = `translate(${$canvasPan.x} ${$canvasPan.y}) scale(${$canvasZoom})`;
-	$: pendingWireStartPos = wireStart ? pinWorldPos(wireStart.componentId, wireStart.pinId) : null;
+	const transform = $derived(
+		`translate(${$canvasPan.x} ${$canvasPan.y}) scale(${$canvasZoom})`
+	);
+	const pendingWireStartPos = $derived(
+		wireStart ? pinWorldPos($circuit.components, wireStart.componentId, wireStart.pinId) : null
+	);
 </script>
 
 <div
-	bind:this={containerEl}
 	class="relative h-full w-full overflow-hidden bg-surface-50"
-	on:drop={editable ? handleDrop : undefined}
-	on:dragover={editable ? handleDragOver : undefined}
+	ondrop={editable ? handleDrop : undefined}
+	ondragover={editable ? handleDragOver : undefined}
+	role="presentation"
 >
 	<svg
 		bind:this={svgEl}
 		class="h-full w-full touch-none select-none"
 		role="application"
 		aria-label="Circuit canvas"
-		on:pointerdown={handleBackgroundPointerDown}
-		on:pointermove={handlePointerMove}
-		on:pointerup={handlePointerUp}
-		on:pointerleave={handlePointerUp}
-		on:wheel={handleWheel}
+		onpointerdown={handleBackgroundPointerDown}
+		onpointermove={handlePointerMove}
+		onpointerup={handlePointerUp}
+		onpointerleave={handlePointerUp}
+		onwheel={handleWheel}
 	>
 		<defs>
 			<pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
@@ -224,8 +231,8 @@
 				{schematic}
 				onSelectWire={handleSelectWire}
 				onWaypointPointerDown={handleWaypointPointerDown}
-				onWaypointDoubleClick={handleWaypointDoubleClick}
-				onWireDoubleClick={handleWireDoubleClick}
+				onWaypointRemove={removeWireWaypoint}
+				onWireAddWaypoint={handleWireAddWaypoint}
 			/>
 			{#each $circuit.components as component (component.id)}
 				<CanvasComponent
@@ -237,8 +244,8 @@
 					{schematic}
 					onPinPointerDown={(e, pinId) => handlePinPointerDown(e, component.id, pinId)}
 					onPinPointerUp={(e, pinId) => handlePinPointerUp(e, component.id, pinId)}
-					on:pointerdown={(e) => handleComponentPointerDown(e, component.id)}
-					on:click={() => handleComponentClick(component.id)}
+					onpointerdown={(e) => handleComponentPointerDown(e, component.id)}
+					onclick={() => handleComponentClick(component.id)}
 				/>
 			{/each}
 			{#if wireStart && wireCursor && pendingWireStartPos}
@@ -260,7 +267,7 @@
 	<div class="absolute bottom-4 right-4 flex items-center gap-1 rounded-lg border border-surface-200 bg-white/95 px-2 py-1 shadow-panel">
 		<button
 			class="rounded px-2 py-1 text-sm text-ink-500 hover:bg-surface-100"
-			on:click={() => canvasZoom.update((z) => Math.max(0.4, z - 0.15))}
+			onclick={() => canvasZoom.update((z) => Math.max(MIN_ZOOM, z - 0.15))}
 			aria-label="Zoom out"
 		>
 			−
@@ -268,14 +275,14 @@
 		<span class="w-12 text-center text-xs font-medium text-ink-500">{Math.round($canvasZoom * 100)}%</span>
 		<button
 			class="rounded px-2 py-1 text-sm text-ink-500 hover:bg-surface-100"
-			on:click={() => canvasZoom.update((z) => Math.min(2.5, z + 0.15))}
+			onclick={() => canvasZoom.update((z) => Math.min(MAX_ZOOM, z + 0.15))}
 			aria-label="Zoom in"
 		>
 			+
 		</button>
 		<button
 			class="ml-1 rounded px-2 py-1 text-xs font-medium text-ink-500 hover:bg-surface-100"
-			on:click={() => {
+			onclick={() => {
 				canvasZoom.set(1);
 				canvasPan.set({ x: 0, y: 0 });
 			}}

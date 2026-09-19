@@ -2,26 +2,52 @@
 	import type { CircuitComponent } from '$lib/types';
 	import ComponentGlyph from './ComponentGlyph.svelte';
 
-	export let component: CircuitComponent;
-	export let selected: boolean = false;
-	export let lit: boolean = false;
-	export let active: boolean = false;
-	export let editable: boolean = false;
-	export let showLabels: boolean = true;
-	export let schematic: boolean = false;
-	export let onPinPointerDown: (event: PointerEvent, pinId: string) => void = () => {};
-	export let onPinPointerUp: (event: PointerEvent, pinId: string) => void = () => {};
+	interface Props {
+		component: CircuitComponent;
+		selected?: boolean;
+		lit?: boolean;
+		active?: boolean;
+		editable?: boolean;
+		showLabels?: boolean;
+		schematic?: boolean;
+		onpointerdown?: (event: PointerEvent) => void;
+		onclick?: (event: MouseEvent) => void;
+		onPinPointerDown?: (event: PointerEvent, pinId: string) => void;
+		onPinPointerUp?: (event: PointerEvent, pinId: string) => void;
+	}
 
-	const mirrorScale = component.mirrored ? -1 : 1;
+	let {
+		component,
+		selected = false,
+		lit = false,
+		active = false,
+		editable = false,
+		showLabels = true,
+		schematic = false,
+		onpointerdown = () => {},
+		onclick = () => {},
+		onPinPointerDown = () => {},
+		onPinPointerUp = () => {}
+	}: Props = $props();
+
+	const mirrorScale = $derived(component.mirrored ? -1 : 1);
 </script>
 
 <g
 	transform={`translate(${component.x} ${component.y}) rotate(${component.rotation}) scale(${mirrorScale} 1)`}
 	class={editable ? 'cursor-grab active:cursor-grabbing' : schematic ? '' : 'cursor-pointer'}
-	role="group"
+	role="button"
+	tabindex="0"
 	aria-label={`${component.label} ${component.refId}`}
-	on:pointerdown
-	on:click
+	aria-pressed={selected}
+	{onpointerdown}
+	{onclick}
+	onkeydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			onclick(e as unknown as MouseEvent);
+		}
+	}}
 >
 	{#if selected}
 		<rect x="-38" y="-24" width="76" height="48" rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 3" />
@@ -62,7 +88,7 @@
 		</g>
 	{/if}
 
-	{#each component.pins as pin}
+	{#each component.pins as pin (pin.id)}
 		<circle
 			cx={pin.x}
 			cy={pin.y}
@@ -71,11 +97,12 @@
 			class:cursor-crosshair={editable}
 			class="pin-dot"
 			data-pin-id={pin.id}
-			on:pointerdown={(event) => {
+			role="presentation"
+			onpointerdown={(event) => {
 				event.stopPropagation();
 				onPinPointerDown(event, pin.id);
 			}}
-			on:pointerup={(event) => {
+			onpointerup={(event) => {
 				event.stopPropagation();
 				onPinPointerUp(event, pin.id);
 			}}
