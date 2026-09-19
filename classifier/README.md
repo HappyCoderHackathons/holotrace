@@ -121,6 +121,26 @@ tail -f runs/classifier.log
 
 Set `num_workers` in the configs to about the number of cores minus two. On CPU, expect the classifier to take minutes per epoch and the MobileNet detector to take much longer. Train and tune the classifier first.
 
+## Watching training
+
+```sh
+uv run holotrace-ml dashboard --runs runs --host <tailscale-ip> --port 8050 --log ~/train_pipeline.log
+```
+
+This is a read-only page that refreshes every 10 seconds. It shows run status, epoch progress with an ETA, the best validation score, loss and validation curves, learning rate, per-class F1 (or AP) from the best checkpoint with the weakest classes first, CPU/memory/disk use, and the tail of any `--log` files. Every chart has a table view. The dashboard uses only the Python standard library and reads what training writes to each run directory: `metrics.jsonl`, `progress.json`, and `best_metrics.json`. It shows no dataset images or user content. Bind it to localhost or the Tailscale IP.
+
+## Model size
+
+Checkpoints hold float32 weights plus a small amount of metadata.
+
+| Model | Parameters | Checkpoint |
+| --- | --- | --- |
+| `resnet_tiny` classifier (width 32) | 2.8M | about 11 MB |
+| `mobilenet_v3_small` classifier | 1.6M | about 6 MB |
+| `fasterrcnn_mobilenet_v3_large_fpn` detector | 19.2M | about 77 MB |
+
+The number of labels barely changes these sizes. Exporting to half precision would roughly halve them.
+
 ## Serving trained models
 
 Training and serving are connected by a model registry (`models/`, git-ignored). A trained model is only served once it is promoted:
@@ -162,6 +182,8 @@ The service verifies each checkpoint against its card's sha256 before loading it
 **Preprocessing parity.** `preprocess.py` is the only place that turns pixels into model input, and training and inference both call it. Each checkpoint records `PREPROCESS_VERSION`, and `load_checkpoint` refuses a mismatch. Bump the version on any change that alters the output.
 
 **Page normalization.** Pages are downscaled to 1600 px on the long side so stroke width in pixels is roughly stable. Illumination is flattened by dividing by a morphological-closing estimate of the paper, which removes shadows and paper tint before either model sees the image.
+
+**Crop size cap.** Exported crops are downscaled to at most 192 px (`--crop-max-side`), which keeps a full CGHD export within a small disk. Inference applies the same cap, and the value travels in `crops_meta.json` and the checkpoint.
 
 **Classifier input.** Crops are an ink map (ink 1, paper 0), stretched by the 99.5th percentile with a floor so empty crops stay empty, then letterboxed to 96 px so aspect ratio is preserved. Context padding around the box (`--context-pad`) keeps nearby wire stubs, which help separate look-alike symbols. The padding value is stored in `crops_meta.json` and the checkpoint so inference crops the same way.
 
