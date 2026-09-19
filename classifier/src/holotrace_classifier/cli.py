@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -128,7 +129,6 @@ def _promote(args: argparse.Namespace) -> None:
 
 
 def _serve(args: argparse.Namespace) -> None:
-    import os
     import sys
 
     from waitress import serve
@@ -221,11 +221,17 @@ def main() -> None:
     p.set_defaults(func=_promote)
 
     p = sub.add_parser("serve", help="HTTP recognition service over the registry's current models")
-    p.add_argument("--registry", type=Path, default=Path("models"))
-    p.add_argument("--host", default="127.0.0.1", help="bind address; use the Tailscale IP to expose on the tailnet")
-    p.add_argument("--port", type=int, default=8000)
-    p.add_argument("--threads", type=int, default=4)
-    p.add_argument("--max-upload-mb", type=int, default=20)
+    p.add_argument("--registry", type=Path, default=Path(os.environ.get("HOLOTRACE_ML_REGISTRY", "models")))
+    p.add_argument(
+        "--host",
+        default=os.environ.get("HOLOTRACE_ML_HOST", "127.0.0.1"),
+        help="bind address; use the Tailscale IP to expose on the tailnet",
+    )
+    p.add_argument("--port", type=int, default=int(os.environ.get("HOLOTRACE_ML_PORT", "8000")))
+    p.add_argument("--threads", type=int, default=int(os.environ.get("HOLOTRACE_ML_THREADS", "4")))
+    p.add_argument(
+        "--max-upload-mb", type=int, default=int(os.environ.get("HOLOTRACE_ML_MAX_UPLOAD_MB", "20"))
+    )
     p.set_defaults(func=_serve)
 
     p = sub.add_parser("dashboard", help="read-only web dashboard for watching training runs")
