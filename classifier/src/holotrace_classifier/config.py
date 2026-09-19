@@ -18,6 +18,8 @@ class OptimConfig:
     grad_clip: float = 1.0
     amp: bool = True
     early_stop_patience: int = 8
+    # Classifier only. > 0: measure speed early in epoch 1, then cap epochs (at most `epochs`) so the run fits
+    time_budget_hours: float = 0.0
 
 
 @dataclass
@@ -46,6 +48,8 @@ class ClassifierConfig:
     seed: int = 1337
     output_dir: Path = Path("runs/classifier")
     run_name: str = ""
+    # Intra-op threads for training; 0 = PyTorch default (all cores). Leave cores free for data loader workers.
+    threads: int = 0
 
 
 @dataclass
