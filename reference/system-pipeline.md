@@ -87,3 +87,7 @@ Recognized -> Needs review -> Electrically valid -> Simulatable
 A circuit can be renderable without being simulatable. Missing values, ambiguous crossings, unknown pin orientation, absent ground, or an unspecified supply voltage should produce actionable review items instead of a low-level solver failure.
 
 User corrections should create a new circuit version. Preserve the original recognition result for auditability and possible model improvement. Do not use private user content as training data without an explicit policy and consent mechanism.
+
+## Recognition implementation
+
+The first recognition models live in [`classifier/`](../classifier/README.md): a crop classifier for regions proposed by the local OpenCV pass, and a full-page Faster R-CNN detector. Both emit a raw `RecognitionResult` that keeps boxes in source-image coordinates, confidences, alternatives, and model and preprocessing versions, as described above. The request contract in `classifier/src/holotrace_classifier/contracts.py` is provisional until the client input reference is defined.
