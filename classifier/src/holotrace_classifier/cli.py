@@ -143,6 +143,12 @@ def _serve(args: argparse.Namespace) -> None:
     serve(app, host=args.host, port=args.port, threads=args.threads)
 
 
+def _dashboard(args: argparse.Namespace) -> None:
+    from .dashboard import serve_dashboard
+
+    serve_dashboard(args.runs, args.host, args.port, args.log)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="holotrace-ml", description="Holotrace symbol recognition")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -221,6 +227,13 @@ def main() -> None:
     p.add_argument("--threads", type=int, default=4)
     p.add_argument("--max-upload-mb", type=int, default=20)
     p.set_defaults(func=_serve)
+
+    p = sub.add_parser("dashboard", help="read-only web dashboard for watching training runs")
+    p.add_argument("--runs", type=Path, default=Path("runs"))
+    p.add_argument("--host", default="127.0.0.1", help="bind address; use the Tailscale IP to view from other devices")
+    p.add_argument("--port", type=int, default=8050)
+    p.add_argument("--log", type=Path, action="append", default=[], help="log file to tail (repeatable)")
+    p.set_defaults(func=_dashboard)
 
     args = parser.parse_args()
     args.func(args)
