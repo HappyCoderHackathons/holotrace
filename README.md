@@ -1,42 +1,22 @@
-# sv
+# holotrace
+## Development
+To run this project make sure you have installed Rust and Cargo locally, if you are unsure run the following
+```console
+rustc --version
+cargo --version
+```
+If you need to install Rust go [here](https://rust-lang.org/tools/install/?utm_source=chatgpt.com)
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
+Make sure you install all system depenedencies
+```console
+sudo apt install -y \
+libgtk-3-dev \
+libsoup-3.0-dev \
+libjavascriptcoregtk-4.1-dev \
+libwebkit2gtk-4.1-dev
 ```
 
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-bun x sv@0.17.1 create --template minimal --types ts --install bun .
+To start the develop app
+```console
+bun run tauri dev
 ```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
-
-## Building
-
-To create a production version of your app:
-
-```sh
-npm run build
-```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
