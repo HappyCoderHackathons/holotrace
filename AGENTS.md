@@ -39,6 +39,7 @@ The documents in `reference/` capture the current product and technical directio
 - `reference/rendering-and-interaction.md`: shared 2D/3D rendering and interaction model.
 - `reference/simulation.md`: simulation boundaries, engine options, and validation requirements.
 - `reference/tiger-data.md`: PostgreSQL ownership, proposed records, versioning, and time-series data.
+- `reference/schema.sql.md`: draft PostgreSQL/Tiger Data schema expressed as annotated SQL.
 
 These are working reference notes, not proof that an API, schema, dependency, or service has been implemented. Preserve the separation between the canonical circuit definition and its ML, layout, rendering, and simulation representations. Update the relevant reference document when an architectural decision changes.
 
