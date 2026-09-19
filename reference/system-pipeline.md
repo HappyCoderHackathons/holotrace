@@ -91,3 +91,8 @@ User corrections should create a new circuit version. Preserve the original reco
 ## Recognition implementation
 
 The first recognition models live in [`classifier/`](../classifier/README.md): a crop classifier for regions proposed by the local OpenCV pass, and a full-page Faster R-CNN detector. Both emit a raw `RecognitionResult` that keeps boxes in source-image coordinates, confidences, alternatives, and model and preprocessing versions, as described above. The request contract in `classifier/src/holotrace_classifier/contracts.py` is provisional until the client input reference is defined.
+
+The recognition API runs with the model package and may share the training host after training completes. Promoted
+checkpoints are the deployment boundary: training output is not served directly. The service verifies checkpoint
+integrity, loads the current registry entries, and exposes only raw recognition results. Client authentication and
+normalization into Circuit IR remain outside this service.
