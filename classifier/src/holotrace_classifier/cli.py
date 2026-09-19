@@ -22,6 +22,7 @@ def _export_crops(args: argparse.Namespace) -> None:
         args.manifests,
         args.out,
         context_pad=args.context_pad,
+        crop_max_side=args.crop_max_side,
         jitter_copies=args.jitter_copies,
         background_per_image=args.background_per_image,
         seed=args.seed,
@@ -158,6 +159,7 @@ def main() -> None:
     p.add_argument("--manifests", type=Path, default=Path("data/manifests"))
     p.add_argument("--out", type=Path, default=Path("data/crops"))
     p.add_argument("--context-pad", type=float, default=0.15)
+    p.add_argument("--crop-max-side", type=int, default=192, help="stored crop size cap; keep >= classifier input")
     p.add_argument("--jitter-copies", type=int, default=1)
     p.add_argument("--background-per-image", type=int, default=8)
     p.add_argument("--seed", type=int, default=0)

@@ -74,6 +74,7 @@ def train_classifier(config: ClassifierConfig) -> Path:
             "preprocess_version": PREPROCESS_VERSION,
             "input_size": data.input_size,
             "context_pad": meta["context_pad"],
+            "crop_max_side": meta["crop_max_side"],
             "epoch": epoch,
             "metrics": {k: v for k, v in metrics.items() if k != "confusion"},
             "state_dict": model.state_dict(),

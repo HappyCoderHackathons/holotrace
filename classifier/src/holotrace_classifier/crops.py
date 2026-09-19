@@ -16,7 +16,7 @@ from torchvision.ops import box_iou
 from .data import CROPS_META, load_annotated_page
 from .labels import BACKGROUND, LABEL_SET_VERSION, LABELS
 from .manifest import SPLITS, read_manifest
-from .preprocess import PREPROCESS_VERSION, extract_crop, write_image
+from .preprocess import PREPROCESS_VERSION, extract_crop, limit_size, write_image
 
 
 def _jitter(box: np.ndarray, rng: np.random.Generator, amount: float = 0.15) -> np.ndarray:
@@ -54,6 +54,7 @@ def export_crops(
     out_root: Path,
     *,
     context_pad: float,
+    crop_max_side: int,
     jitter_copies: int,
     background_per_image: int,
     seed: int,
@@ -77,12 +78,13 @@ def export_crops(
                 label = LABELS[label_index]
                 variants = [box] + [_jitter(box, rng) for _ in range(jitter_copies if split == "train" else 0)]
                 for j, variant in enumerate(variants):
-                    crop = extract_crop(page, tuple(variant), context_pad)
+                    crop = limit_size(extract_crop(page, tuple(variant), context_pad), crop_max_side)
                     write_image(out_root / split / label / f"{stem}_{i:04d}_{j}.png", crop)
                     counts[label] += 1
             for i, box in enumerate(_background_boxes(boxes, page.shape, background_per_image, rng)):
                 write_image(
-                    out_root / split / BACKGROUND / f"{stem}_bg{i:03d}.png", extract_crop(page, tuple(box), context_pad)
+                    out_root / split / BACKGROUND / f"{stem}_bg{i:03d}.png",
+                    limit_size(extract_crop(page, tuple(box), context_pad), crop_max_side),
                 )
                 counts[BACKGROUND] += 1
         report[split] = dict(counts.most_common())
@@ -90,6 +92,7 @@ def export_crops(
 
     meta = {
         "context_pad": context_pad,
+        "crop_max_side": crop_max_side,
         "preprocess_version": PREPROCESS_VERSION,
         "label_set_version": LABEL_SET_VERSION,
         "counts": report,
