@@ -118,6 +118,14 @@ def _preview_crops(args: argparse.Namespace) -> None:
     print(f"wrote {args.out}")
 
 
+def _promote(args: argparse.Namespace) -> None:
+    from .registry import promote
+
+    card = promote(args.run, args.registry, checkpoint_name=args.checkpoint, force=args.force)
+    summary = {k: v for k, v in card["metrics"].items() if not isinstance(v, (dict, list))}
+    print(f"{card['kind']} CURRENT -> {card['model_version']} {json.dumps(summary)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="holotrace-ml", description="Holotrace symbol recognition")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -180,6 +188,13 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--out", type=Path, default=Path("previews/crops.png"))
     p.set_defaults(func=_preview_crops)
+
+    p = sub.add_parser("promote", help="copy a run's checkpoint into the model registry and make it current")
+    p.add_argument("--run", type=Path, required=True, help="training run directory, e.g. runs/classifier/<run>")
+    p.add_argument("--checkpoint", default="best.pt")
+    p.add_argument("--registry", type=Path, default=Path("models"))
+    p.add_argument("--force", action="store_true", help="promote even if the validation score is lower")
+    p.set_defaults(func=_promote)
 
     args = parser.parse_args()
     args.func(args)

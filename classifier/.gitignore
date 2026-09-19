@@ -6,6 +6,7 @@ __pycache__/
 # Datasets, derived crops, training runs, and weights stay out of git
 data/
 runs/
+models/
 previews/
 *.pt
 *.pth
