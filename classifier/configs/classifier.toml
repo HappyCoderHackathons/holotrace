@@ -1,0 +1,27 @@
+seed = 1337
+output_dir = "runs/classifier"
+run_name = ""  # empty = timestamp
+
+[data]
+root = "data/crops"
+input_size = 96
+batch_size = 128
+num_workers = 8
+balance_classes = true
+rotate90 = true
+
+[model]
+arch = "resnet_tiny"  # or "mobilenet_v3_small"
+width = 32
+dropout = 0.2
+pretrained = true  # mobilenet only
+
+[optim]
+epochs = 40
+lr = 3e-3
+weight_decay = 5e-4
+warmup_epochs = 1.0
+label_smoothing = 0.05
+grad_clip = 1.0
+amp = true  # CUDA only; ignored on CPU
+early_stop_patience = 8
