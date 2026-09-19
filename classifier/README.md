@@ -115,11 +115,27 @@ cd ~/holotrace && git pull ~/holotrace.bundle feat/classifier
 cd classifier && uv sync
 uv run holotrace-ml import-cghd --root ~/datasets/cghd --out data/manifests
 uv run holotrace-ml export-crops
-mkdir -p runs && tmux new -d -s train "uv run holotrace-ml train-classifier 2>&1 | tee runs/classifier.log"
+mkdir -p runs && tmux new -d -s train \
+  "uv run holotrace-ml train-classifier --config configs/classifier-cpu.toml 2>&1 | tee runs/classifier.log"
 tail -f runs/classifier.log
 ```
 
-Set `num_workers` in the configs to about the number of cores minus two. On CPU, expect the classifier to take minutes per epoch and the MobileNet detector to take much longer. Train and tune the classifier first.
+### Fitting a CPU time budget
+
+`configs/classifier-cpu.toml` is sized for the 12-core server. The run finishes inside `optim.time_budget_hours` (7 by default): after 200 timed steps of epoch 1, the trainer measures its own seconds per step, sets the epoch count (capped at `epochs`), and shortens the cosine schedule so the learning rate reaches zero at the end of the budget. It prints what it decided, for example `time budget 7 h: 0.25 s/step, 15 min/epoch -> 27 epochs`. The dashboard's epoch total updates to match.
+
+Measured on the server (12 vCPUs with AVX-512, training throughput for the model alone):
+
+| Model | Input | Samples/s |
+| --- | --- | --- |
+| `resnet_tiny` width 32 | 96 px | about 220 |
+| `resnet_tiny` width 32 | 64 px | about 520 |
+| `resnet_tiny` width 24 | 64 px | about 730 |
+| `mobilenet_v3_small` | 64 px | about 1,350 |
+
+Input size drives cost more than anything else, so the CPU config uses 64 px. Stored crops (up to 192 px) work at any input size without re-exporting. The config also splits the cores: `threads = 9` for PyTorch compute and `num_workers = 3` for loading. The first full run used 8 workers plus 12 compute threads on 12 cores and was about 45% slower than the model alone because they contended.
+
+More cores help roughly linearly. The vCPU count is set in the hypervisor, so rebooting from inside the VM does not change it. The detector has no time budget and is impractical on this CPU; train it on a GPU.
 
 ## Watching training
 
