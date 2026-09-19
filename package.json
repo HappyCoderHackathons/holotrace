@@ -23,6 +23,7 @@
 		"vite": "^8.0.16"
 	},
 	"dependencies": {
+		"@tauri-apps/api": "^2.11.1",
 		"drizzle-kit": "^0.31.10",
 		"drizzle-orm": "^0.45.2",
 		"pg": "^8.23.0"
