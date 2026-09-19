@@ -12,11 +12,11 @@ The intended processing pipeline is:
 2. Run a lightweight first pass locally with OpenCV.
 3. Send the processed input to an external conversion service.
 4. Run a more capable custom PyTorch model on that service.
-5. Return a structured circuit representation that the client can render and manipulate in 3D.
+5. Return a structured circuit representation that the client can render and simulate in 3D.
 
 ## Planned architecture
 
-- Client: Tauri, TypeScript, and Svelte/SvelteKit, targeting desktop and mobile.
+- Client: Tauri, TypeScript, and Svelte/SvelteKit, targeting desktop and mobile, specially Android.
 - On-device vision: OpenCV for preprocessing and the first recognition pass.
 - Conversion service: an external service that owns the heavier PyTorch inference pipeline.
 - Data store: Tiger Data for component definitions and circuit-diagram equivalents.
@@ -40,7 +40,7 @@ These are architectural intentions while the repository is being bootstrapped. D
 - Do not modify generated files directly when a source or generator exists.
 - Do not make unrelated cleanup changes.
 - Update documentation when a change establishes or changes an interface, workflow, architectural boundary, or developer command.
-- Add or update tests when they provide meaningful coverage and the project has an applicable test setup. Do not invent a test framework solely to satisfy a small documentation or configuration change.
+- DO NO MAKE TESTS
 
 ## Guidance for Claude
 
