@@ -96,3 +96,10 @@ The recognition API runs with the model package and may share the training host 
 checkpoints are the deployment boundary: training output is not served directly. The service verifies checkpoint
 integrity, loads the current registry entries, and exposes only raw recognition results. Client authentication and
 normalization into Circuit IR remain outside this service.
+
+## Normalization implementation
+
+The provisional API-server normalizer is documented in
+[`circuit-normalization.md`](circuit-normalization.md). It combines the OpenCV wire graph and region geometry with the
+raw classifier result, applies component pin templates, constructs canonical nets, and returns structured review
+issues to the user-facing app. Simulator-specific exports remain downstream adapters over Circuit IR.

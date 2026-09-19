@@ -1,8 +1,8 @@
-# Tiger Data
+# PostgreSQL
 
 ## Role
 
-Tiger Data is the PostgreSQL system of record around recognition, rendering, and simulation. It stores what a circuit is, how it changed, how logical components map to their representations, and selected results from saved simulations.
+PostgreSQL is the system of record around recognition, rendering, and simulation. It runs in a standard Docker container and stores what a circuit is, how it changed, how logical components map to their representations, and selected results from saved simulations.
 
 It should not render circuits, execute the simulation loop, store privileged credentials in the client, or serve as the primary home for large binary assets.
 
@@ -11,7 +11,7 @@ Tauri and Svelte client
           |
 Holotrace API
           |
-Tiger Data PostgreSQL
+PostgreSQL container
     |              |
 Object storage   Workers and services
 ```
@@ -73,7 +73,7 @@ A simulation session should identify the exact circuit version, simulator and ad
 
 ## Time-series data
 
-Normal PostgreSQL tables are appropriate for users, catalog records, circuits, versions, and jobs. A Tiger Data hypertable is appropriate only for ordered simulation samples such as:
+Normal PostgreSQL tables are appropriate for users, catalog records, circuits, versions, jobs, and deliberately retained simulation samples such as:
 
 - node voltage;
 - branch or component current;
@@ -81,7 +81,7 @@ Normal PostgreSQL tables are appropriate for users, catalog records, circuits, v
 - motor speed;
 - sampled sensor output.
 
-An illustrative sample identity consists of session, signal, timestamp, numeric value, and unit. Do not write every internal solver step. Select or downsample signals, batch inserts, and apply retention, aggregation, compression, or tiering policies according to product needs.
+An illustrative sample identity consists of session, signal, timestamp, numeric value, and unit. Do not write every internal solver step. Select or downsample signals and batch inserts. Add PostgreSQL partitioning or an external archival policy only after measured volume justifies the operational cost.
 
 ## Object storage
 
@@ -97,4 +97,4 @@ PostgreSQL should store the object key or URL, content hash, MIME type, byte siz
 
 ## Offline clients
 
-The Tauri application may cache the current circuit, catalog subset, and assets locally. Synchronization should use stable identifiers, explicit circuit versions, and conflict-aware edits. Offline simulation is possible only for engines and models shipped or cached on the device; Tiger Data is not part of that live loop.
+The Tauri application may cache the current circuit, catalog subset, and assets locally. Synchronization should use stable identifiers, explicit circuit versions, and conflict-aware edits. Offline simulation is possible only for engines and models shipped or cached on the device; PostgreSQL is not part of that live loop.
