@@ -1,0 +1,31 @@
+seed = 1337
+output_dir = "runs/detector"
+run_name = ""
+eval_every = 1
+eval_iou = 0.5
+
+[data]
+manifest_dir = "data/manifests"
+batch_size = 4
+num_workers = 6
+rotate90 = true
+
+[model]
+arch = "fasterrcnn_mobilenet_v3_large_fpn"  # or "fasterrcnn_resnet50_fpn_v2" (much slower on CPU)
+pretrained = true
+min_size = 1024
+max_size = 1600
+trainable_backbone_layers = 3
+anchor_scale = 0.5
+score_threshold = 0.3
+detections_per_image = 300
+
+[optim]
+epochs = 30
+lr = 0.01
+momentum = 0.9
+weight_decay = 1e-4
+warmup_epochs = 1.0
+grad_clip = 10.0
+amp = true
+early_stop_patience = 6
