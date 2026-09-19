@@ -13,7 +13,16 @@ from .manifest import read_manifest
 from .metrics import detection_ap
 from .models import build_detector
 from .preprocess import PAGE_MAX_SIDE, PREPROCESS_VERSION
-from .utils import JsonlLogger, make_run_dir, param_groups, pick_device, seed_everything, warmup_cosine
+from .utils import (
+    JsonlLogger,
+    Progress,
+    make_run_dir,
+    param_groups,
+    pick_device,
+    seed_everything,
+    warmup_cosine,
+    write_json_atomic,
+)
 
 
 @torch.inference_mode()
@@ -64,6 +73,7 @@ def train_detector(config: DetectorConfig) -> Path:
     run_dir = make_run_dir(config.output_dir, config.run_name)
     (run_dir / "config.json").write_text(config_to_json(config), encoding="utf-8")
     logger = JsonlLogger(run_dir / "metrics.jsonl")
+    progress = Progress(run_dir, optim.epochs, steps)
     print(f"device={device} train={len(train_set)} val={len(val_set)} run_dir={run_dir}", flush=True)
 
     def checkpoint(epoch: int, metrics: dict) -> dict:
@@ -85,6 +95,7 @@ def train_detector(config: DetectorConfig) -> Path:
         model.train()
         totals: dict[str, float] = {}
         for step, (images, targets) in enumerate(train_loader, 1):
+            progress.update("train", epoch, step)
             images = [image.to(device, non_blocking=True) for image in images]
             targets = [{k: v.to(device, non_blocking=True) for k, v in t.items()} for t in targets]
             with torch.autocast(device.type, enabled=use_amp):
@@ -108,11 +119,13 @@ def train_detector(config: DetectorConfig) -> Path:
         record = {"epoch": epoch, "lr": scheduler.get_last_lr()[0]}
         record |= {f"train_{name}": total / steps for name, total in totals.items()}
         if epoch % config.eval_every == 0 or epoch == optim.epochs:
+            progress.update("eval", epoch, steps, force=True)
             metrics = evaluate_detector(model, val_loader, device, config.eval_iou)
             record["val_map"] = metrics["map"]
             if metrics["map"] > best:
                 best, stale = metrics["map"], 0
                 torch.save(checkpoint(epoch, metrics), run_dir / "best.pt")
+                write_json_atomic(run_dir / "best_metrics.json", {"epoch": epoch} | metrics)
             else:
                 stale += 1
         logger.log(record)
@@ -121,4 +134,5 @@ def train_detector(config: DetectorConfig) -> Path:
             break
 
     torch.save(checkpoint(epoch, metrics), run_dir / "last.pt")
+    progress.update("stopped" if epoch < optim.epochs else "done", epoch, steps, force=True)
     return run_dir
