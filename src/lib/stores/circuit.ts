@@ -180,22 +180,6 @@ export function addComponent(type: ComponentType, x: number, y: number) {
 	});
 }
 
-export function removeComponent(id: string) {
-	circuit.update((state) => ({
-		...state,
-		components: state.components.filter((c) => c.id !== id),
-		wires: state.wires.filter((w) => w.fromComponentId !== id && w.toComponentId !== id)
-	}));
-	selectedIds.update((s) => {
-		s.delete(id);
-		return new Set(s);
-	});
-}
-
-export function removeWire(id: string) {
-	circuit.update((state) => ({ ...state, wires: state.wires.filter((w) => w.id !== id) }));
-}
-
 export function moveComponent(id: string, x: number, y: number) {
 	circuit.update((state) => ({
 		...state,
@@ -277,12 +261,23 @@ export function setWireStyleFor(id: string, style: 'solid' | 'dashed') {
 	}));
 }
 
+/** Deletes the whole selection as a single undoable step. */
 export function deleteSelected() {
-	const ids = get(selectedIds);
+	const componentIds = get(selectedIds);
 	const wireIds = get(selectedWireIds);
-	ids.forEach((id) => removeComponent(id));
-	wireIds.forEach((id) => removeWire(id));
-	selectedWireIds.set(new Set());
+	if (componentIds.size === 0 && wireIds.size === 0) return;
+
+	circuit.update((state) => ({
+		...state,
+		components: state.components.filter((c) => !componentIds.has(c.id)),
+		wires: state.wires.filter(
+			(w) =>
+				!wireIds.has(w.id) &&
+				!componentIds.has(w.fromComponentId) &&
+				!componentIds.has(w.toComponentId)
+		)
+	}));
+	clearSelection();
 }
 
 export function clearSelection() {
@@ -290,10 +285,10 @@ export function clearSelection() {
 	selectedWireIds.set(new Set());
 }
 
+/** Replaces the working circuit with a freshly recognized one, resetting history. */
 export function loadDetectedCircuit(state: CircuitState) {
-	suppressHistory = true;
+	history.length = 0;
+	historyIndex = -1;
 	circuit.set(state);
-	suppressHistory = false;
-	pushHistory(state);
 	clearSelection();
 }
