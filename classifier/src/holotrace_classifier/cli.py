@@ -126,6 +126,22 @@ def _promote(args: argparse.Namespace) -> None:
     print(f"{card['kind']} CURRENT -> {card['model_version']} {json.dumps(summary)}")
 
 
+def _serve(args: argparse.Namespace) -> None:
+    import os
+    import sys
+
+    from waitress import serve
+
+    from .service import create_app
+
+    api_key = os.environ.get("HOLOTRACE_ML_API_KEY", "")
+    if not api_key:
+        sys.exit("HOLOTRACE_ML_API_KEY is not set")
+    app = create_app(args.registry, api_key, max_upload_mb=args.max_upload_mb)
+    print(f"serving on http://{args.host}:{args.port}", flush=True)
+    serve(app, host=args.host, port=args.port, threads=args.threads)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="holotrace-ml", description="Holotrace symbol recognition")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -195,6 +211,14 @@ def main() -> None:
     p.add_argument("--registry", type=Path, default=Path("models"))
     p.add_argument("--force", action="store_true", help="promote even if the validation score is lower")
     p.set_defaults(func=_promote)
+
+    p = sub.add_parser("serve", help="HTTP recognition service over the registry's current models")
+    p.add_argument("--registry", type=Path, default=Path("models"))
+    p.add_argument("--host", default="127.0.0.1", help="bind address; use the Tailscale IP to expose on the tailnet")
+    p.add_argument("--port", type=int, default=8000)
+    p.add_argument("--threads", type=int, default=4)
+    p.add_argument("--max-upload-mb", type=int, default=20)
+    p.set_defaults(func=_serve)
 
     args = parser.parse_args()
     args.func(args)
