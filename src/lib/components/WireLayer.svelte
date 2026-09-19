@@ -1,39 +1,46 @@
 <script lang="ts">
 	import type { CircuitComponent, Wire } from '$lib/types';
+	import { pinWorldPos } from '$lib/geometry';
 
-	export let wires: Wire[];
-	export let components: CircuitComponent[];
-	export let selectedWireIds: Set<string> = new Set();
-	export let activeCurrent: Record<string, number> = {};
-	export let editable: boolean = false;
-	export let schematic: boolean = false;
-	export let onSelectWire: (id: string) => void = () => {};
-	export let onWaypointPointerDown: (event: PointerEvent, wireId: string, index: number) => void =
-		() => {};
-	export let onWaypointDoubleClick: (event: MouseEvent, wireId: string, index: number) => void =
-		() => {};
-	export let onWireDoubleClick: (event: MouseEvent, wireId: string) => void = () => {};
-
-	function pinWorldPos(compId: string, pinId: string): { x: number; y: number } | null {
-		const comp = components.find((c) => c.id === compId);
-		if (!comp) return null;
-		const pin = comp.pins.find((p) => p.id === pinId);
-		if (!pin) return null;
-		const rad = (comp.rotation * Math.PI) / 180;
-		const mirror = comp.mirrored ? -1 : 1;
-		const px = pin.x * mirror;
-		const py = pin.y;
-		const rx = px * Math.cos(rad) - py * Math.sin(rad);
-		const ry = px * Math.sin(rad) + py * Math.cos(rad);
-		return { x: comp.x + rx, y: comp.y + ry };
+	interface Props {
+		wires: Wire[];
+		components: CircuitComponent[];
+		selectedWireIds?: Set<string>;
+		/** wireId -> normalised current magnitude, 0 to 1 */
+		activeCurrent?: Record<string, number>;
+		editable?: boolean;
+		schematic?: boolean;
+		onSelectWire?: (id: string) => void;
+		onWaypointPointerDown?: (event: PointerEvent, wireId: string, index: number) => void;
+		onWaypointRemove?: (wireId: string, index: number) => void;
+		onWireAddWaypoint?: (event: MouseEvent, wireId: string) => void;
 	}
 
+	let {
+		wires,
+		components,
+		selectedWireIds = new Set(),
+		activeCurrent = {},
+		editable = false,
+		schematic = false,
+		onSelectWire = () => {},
+		onWaypointPointerDown = () => {},
+		onWaypointRemove = () => {},
+		onWireAddWaypoint = () => {}
+	}: Props = $props();
+
 	function pathFor(wire: Wire): string {
-		const from = pinWorldPos(wire.fromComponentId, wire.fromPinId);
-		const to = pinWorldPos(wire.toComponentId, wire.toPinId);
+		const from = pinWorldPos(components, wire.fromComponentId, wire.fromPinId);
+		const to = pinWorldPos(components, wire.toComponentId, wire.toPinId);
 		if (!from || !to) return '';
 		const points = [from, ...(wire.waypoints ?? []), to];
 		return points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+	}
+
+	function wireLabel(wire: Wire): string {
+		const from = components.find((c) => c.id === wire.fromComponentId);
+		const to = components.find((c) => c.id === wire.toComponentId);
+		return `Wire from ${from?.refId ?? '?'} pin ${wire.fromPinId} to ${to?.refId ?? '?'} pin ${wire.toPinId}`;
 	}
 </script>
 
@@ -43,15 +50,25 @@
 		{@const isSelected = selectedWireIds.has(wire.id)}
 		{@const current = activeCurrent[wire.id] ?? 0}
 		{#if d}
+			<!-- Wide transparent path widens the hit area for pointer and touch input -->
 			<path
 				{d}
 				fill="none"
 				stroke="transparent"
 				stroke-width="14"
-				class={editable ? 'cursor-pointer' : 'cursor-pointer'}
-				role="presentation"
-				on:click={() => onSelectWire(wire.id)}
-				on:dblclick={(e) => editable && onWireDoubleClick(e, wire.id)}
+				class="cursor-pointer focus:outline-none"
+				role="button"
+				tabindex="0"
+				aria-label={wireLabel(wire)}
+				aria-pressed={isSelected}
+				onclick={() => onSelectWire(wire.id)}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						onSelectWire(wire.id);
+					}
+				}}
+				ondblclick={(e) => editable && onWireAddWaypoint(e, wire.id)}
 			/>
 			<path
 				{d}
@@ -85,9 +102,21 @@
 						stroke={isSelected ? '#2563eb' : '#64748b'}
 						stroke-width="2"
 						class="cursor-move"
-						role="presentation"
-						on:pointerdown={(e) => onWaypointPointerDown(e, wire.id, i)}
-						on:dblclick={(e) => onWaypointDoubleClick(e, wire.id, i)}
+						role="button"
+						tabindex="0"
+						aria-label={`Waypoint ${i + 1} of ${wireLabel(wire)}`}
+						onpointerdown={(e) => onWaypointPointerDown(e, wire.id, i)}
+						ondblclick={(e) => {
+							e.stopPropagation();
+							onWaypointRemove(wire.id, i);
+						}}
+						onkeydown={(e) => {
+							if (e.key === 'Delete' || e.key === 'Backspace') {
+								e.preventDefault();
+								e.stopPropagation();
+								onWaypointRemove(wire.id, i);
+							}
+						}}
 					/>
 				{/each}
 			{/if}

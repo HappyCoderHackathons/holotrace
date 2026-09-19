@@ -1,14 +1,27 @@
 <script lang="ts">
 	import type { ComponentType } from '$lib/types';
 
-	export let type: ComponentType;
-	export let color: string | undefined = undefined;
-	export let lit: boolean = false;
-	export let active: boolean = false; // e.g. switch closed / button pressed
-	export let scale: number = 1;
-	export let schematic: boolean = false;
+	interface Props {
+		type: ComponentType;
+		color?: string;
+		/** LED is conducting enough current to emit */
+		lit?: boolean;
+		/** switch closed / button pressed */
+		active?: boolean;
+		scale?: number;
+		schematic?: boolean;
+	}
 
-	const ledColor = color ?? '#e11d2e';
+	let {
+		type,
+		color = undefined,
+		lit = false,
+		active = false,
+		scale = 1,
+		schematic = false
+	}: Props = $props();
+
+	const ledColor = $derived(color ?? '#e11d2e');
 	const schematicStroke = '#b91c1c';
 </script>
 

@@ -31,13 +31,13 @@
 	<div class="min-h-0 flex-1 overflow-hidden p-4 sm:p-6">
 		<div class="relative mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col border-2 border-schematic bg-white">
 			<div class="grid grid-cols-6 border-b border-schematic text-center text-xs font-medium text-schematic">
-				{#each cols as c}
+				{#each cols as c (c)}
 					<div class="border-r border-schematic py-1 last:border-r-0">{c}</div>
 				{/each}
 			</div>
 			<div class="relative flex min-h-0 flex-1">
 				<div class="flex w-6 shrink-0 flex-col text-xs font-medium text-schematic">
-					{#each rows as r}
+					{#each rows as r (r)}
 						<div class="flex flex-1 items-center justify-center border-r border-schematic">{r}</div>
 					{/each}
 				</div>

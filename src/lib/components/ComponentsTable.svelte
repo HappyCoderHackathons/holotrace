@@ -3,7 +3,7 @@
 	import { circuit } from '$lib/stores/circuit';
 	import { COMPONENT_DISPLAY_NAME } from '$lib/componentLibrary';
 
-	$: rows = (() => {
+	const rows = $derived.by(() => {
 		const counts = new Map<string, { refIds: string[]; type: string; count: number }>();
 		for (const c of $circuit.components) {
 			const displayType = COMPONENT_DISPLAY_NAME[c.type];
@@ -18,7 +18,7 @@
 			quantity: entry.count,
 			type: entry.type
 		}));
-	})();
+	});
 
 	function downloadCsv() {
 		const header = 'Name,Quantity,Component\n';
@@ -39,7 +39,7 @@
 			<h1 class="text-lg font-semibold text-ink-300">Component List</h1>
 			<button
 				class="flex items-center gap-2 rounded-lg border border-surface-200 bg-white px-3.5 py-2 text-sm font-medium text-ink-700 hover:bg-surface-100"
-				on:click={downloadCsv}
+				onclick={downloadCsv}
 			>
 				<Download size={15} />
 				Download CSV
@@ -56,7 +56,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each rows as row}
+					{#each rows as row (row.name)}
 						<tr class="border-t border-surface-200">
 							<td class="px-6 py-3 text-ink-900">{row.name}</td>
 							<td class="px-6 py-3 text-ink-900">{row.quantity}</td>

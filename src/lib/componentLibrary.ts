@@ -18,6 +18,17 @@ export const PALETTE: PaletteItem[] = [
 	{ type: 'battery', label: 'Coin Cell 3V', category: 'Power', defaultValue: '3V' }
 ];
 
+/** Every known component type, for validating untrusted input such as drag payloads. */
+export const COMPONENT_TYPES: readonly ComponentType[] = [
+	'battery',
+	'led',
+	'resistor',
+	'switch',
+	'capacitor',
+	'pushbutton',
+	'potentiometer'
+];
+
 export const REF_PREFIX: Record<ComponentType, string> = {
 	battery: 'BAT',
 	led: 'D',

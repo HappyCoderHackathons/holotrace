@@ -35,9 +35,11 @@
 
 	const wireColors = ['#22c55e', '#111827', '#ef4444', '#2563eb', '#f59e0b'];
 
-	$: hasComponentSelection = $selectedIds.size > 0;
-	$: hasWireSelection = $selectedWireIds.size > 0;
-	$: selectedComponentId = hasComponentSelection ? Array.from($selectedIds)[0] : null;
+	const hasComponentSelection = $derived($selectedIds.size > 0);
+	const hasWireSelection = $derived($selectedWireIds.size > 0);
+	const selectedComponentId = $derived(
+		hasComponentSelection ? (Array.from($selectedIds)[0] ?? null) : null
+	);
 
 	function applyWireColor(color: string) {
 		wireColor.set(color);
@@ -61,7 +63,8 @@
 			class:bg-accent={$editMode}
 			class:text-white={$editMode}
 			class:text-ink-700={!$editMode}
-			on:click={() => editMode.set(true)}
+			aria-pressed={$editMode}
+			onclick={() => editMode.set(true)}
 		>
 			<Pencil size={14} />
 			Edit
@@ -71,7 +74,8 @@
 			class:bg-accent={!$editMode}
 			class:text-white={!$editMode}
 			class:text-ink-700={$editMode}
-			on:click={() => editMode.set(false)}
+			aria-pressed={!$editMode}
+			onclick={() => editMode.set(false)}
 		>
 			<Eye size={14} />
 			View
@@ -91,7 +95,7 @@
 		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
 		aria-label="Delete"
 		disabled={!hasComponentSelection && !hasWireSelection}
-		on:click={deleteSelected}
+		onclick={deleteSelected}
 	>
 		<Trash2 size={16} />
 	</button>
@@ -102,7 +106,7 @@
 		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
 		aria-label="Undo"
 		disabled={!$canUndo}
-		on:click={undo}
+		onclick={undo}
 	>
 		<Undo2 size={16} />
 	</button>
@@ -110,7 +114,7 @@
 		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
 		aria-label="Redo"
 		disabled={!$canRedo}
-		on:click={redo}
+		onclick={redo}
 	>
 		<Redo2 size={16} />
 	</button>
@@ -124,29 +128,32 @@
 		class:text-ink-600={$editTool !== 'wire'}
 		disabled={!$editMode}
 		aria-label="Wire tool"
-		on:click={() => editTool.set($editTool === 'wire' ? 'select' : 'wire')}
+		aria-pressed={$editTool === 'wire'}
+		onclick={() => editTool.set($editTool === 'wire' ? 'select' : 'wire')}
 	>
 		<Cable size={15} />
 		Wire
 	</button>
 
 	<div class="flex items-center gap-1">
-		{#each wireColors as color}
+		{#each wireColors as color (color)}
 			<button
 				class="h-6 w-6 rounded-full border-2 transition-transform hover:scale-110"
 				class:border-ink-900={$wireColor === color}
 				class:border-transparent={$wireColor !== color}
 				style={`background-color:${color}`}
 				aria-label={`Wire color ${color}`}
-				on:click={() => applyWireColor(color)}
-			/>
+				aria-pressed={$wireColor === color}
+				onclick={() => applyWireColor(color)}
+			></button>
 		{/each}
 	</div>
 
 	<select
 		class="ml-1 rounded-md border border-surface-200 bg-white px-2 py-1.5 text-xs text-ink-700"
 		value={$wireStyle}
-		on:change={(e) => applyWireStyle(e.currentTarget.value as 'solid' | 'dashed')}
+		aria-label="Wire style"
+		onchange={(e) => applyWireStyle(e.currentTarget.value as 'solid' | 'dashed')}
 	>
 		<option value="solid">— Solid</option>
 		<option value="dashed">┄ Dashed</option>
@@ -158,7 +165,7 @@
 		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
 		aria-label="Rotate"
 		disabled={!selectedComponentId || !$editMode}
-		on:click={() => $editMode && selectedComponentId && rotateComponent(selectedComponentId)}
+		onclick={() => selectedComponentId && rotateComponent(selectedComponentId)}
 	>
 		<RotateCw size={16} />
 	</button>
@@ -166,7 +173,7 @@
 		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
 		aria-label="Mirror"
 		disabled={!selectedComponentId || !$editMode}
-		on:click={() => $editMode && selectedComponentId && mirrorComponent(selectedComponentId)}
+		onclick={() => selectedComponentId && mirrorComponent(selectedComponentId)}
 	>
 		<FlipHorizontal2 size={16} />
 	</button>
@@ -176,7 +183,7 @@
 	{#if $simulationRunning}
 		<button
 			class="flex items-center gap-1.5 rounded-lg bg-ink-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-ink-700"
-			on:click={stopSimulation}
+			onclick={stopSimulation}
 		>
 			<Square size={13} fill="white" />
 			Stop Simulation
@@ -184,7 +191,7 @@
 	{:else}
 		<button
 			class="flex items-center gap-1.5 rounded-lg bg-live px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700"
-			on:click={startSimulation}
+			onclick={startSimulation}
 		>
 			<Play size={13} fill="white" />
 			Start Simulation
