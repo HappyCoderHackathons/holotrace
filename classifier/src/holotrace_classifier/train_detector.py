@@ -43,6 +43,8 @@ def evaluate_detector(model: nn.Module, loader: DataLoader, device: torch.device
 
 
 def train_detector(config: DetectorConfig) -> Path:
+    if config.optim.time_budget_hours:
+        raise ValueError("optim.time_budget_hours is only implemented for the classifier")
     seed_everything(config.seed)
     device = pick_device()
     data = config.data

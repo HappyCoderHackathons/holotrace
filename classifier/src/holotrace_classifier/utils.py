@@ -41,16 +41,27 @@ def param_groups(model: nn.Module, weight_decay: float) -> list[dict]:
     return [{"params": decay, "weight_decay": weight_decay}, {"params": no_decay, "weight_decay": 0.0}]
 
 
-def warmup_cosine(optimizer: torch.optim.Optimizer, total_steps: int, warmup_steps: int) -> LambdaLR:
-    """Linear warmup from ~0 to the base LR, then cosine decay to 0 over the remaining steps."""
+class WarmupCosine(LambdaLR):
+    """Linear warmup from ~0 to the base LR, then cosine decay to 0 by total_steps.
 
-    def factor(step: int) -> float:
-        if step < warmup_steps:
-            return (step + 1) / warmup_steps
-        progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+    total_steps and warmup_steps are plain attributes, so a time-budgeted run can shorten the schedule once it has
+    measured its own speed.
+    """
+
+    def __init__(self, optimizer: torch.optim.Optimizer, total_steps: int, warmup_steps: int) -> None:
+        self.total_steps = total_steps
+        self.warmup_steps = max(1, warmup_steps)
+        super().__init__(optimizer, self.factor)
+
+    def factor(self, step: int) -> float:
+        if step < self.warmup_steps:
+            return (step + 1) / self.warmup_steps
+        progress = (step - self.warmup_steps) / max(1, self.total_steps - self.warmup_steps)
         return 0.5 * (1 + math.cos(math.pi * min(progress, 1.0)))
 
-    return LambdaLR(optimizer, factor)
+
+def warmup_cosine(optimizer: torch.optim.Optimizer, total_steps: int, warmup_steps: int) -> WarmupCosine:
+    return WarmupCosine(optimizer, total_steps, warmup_steps)
 
 
 def write_json_atomic(path: Path, data: object) -> None:
