@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+
+# Datasets, derived crops, training runs, and weights stay out of git
+data/
+runs/
+previews/
+*.pt
+*.pth
+*.onnx
