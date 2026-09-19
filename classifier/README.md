@@ -169,7 +169,11 @@ uv run holotrace-ml promote --run runs/detector/<run>
 
 `promote` copies the checkpoint into `models/<kind>/<model_version>/` with a `card.json` (source run, metrics, label and preprocessing versions, sha256), then updates `models/<kind>/CURRENT`. It refuses to replace the current model with one that scores lower on validation unless `--force` is given.
 
-The registry is self-contained, so deploying to the separate serving host is a copy followed by a reload:
+The API can run on the training server from the same checkout and registry. See
+[`deploy/README.md`](deploy/README.md) for the systemd user-service setup and the promote/reload workflow. The process
+may start before a model is promoted: `/health` remains live and `/health/ready` returns 503 until a model is loaded.
+
+The registry is also self-contained, so deploying to a separate serving host is a copy followed by a reload:
 
 ```sh
 rsync -a models/ <serving-host>:holotrace/classifier/models/
@@ -187,11 +191,16 @@ uv run holotrace-ml serve --registry models --host <tailscale-ip> --port 8000
 | Route | Auth | Purpose |
 | --- | --- | --- |
 | `GET /health` | none | liveness |
+| `GET /health/ready` | none | readiness; 503 until a model is loaded |
 | `GET /v0/models` | key | versions currently loaded |
 | `POST /v0/recognize` | key | multipart `image` file + `request` (RecognitionRequest JSON) -> RecognitionResult |
 | `POST /v0/admin/reload` | key | re-read `CURRENT` and swap models without a restart |
 
-The service verifies each checkpoint against its card's sha256 before loading it. It returns 400 for an invalid request, 422 for an image it cannot decode or whose size disagrees with the request, and 413 for uploads over `--max-upload-mb`. Request bodies are not logged. The API key is server-side only: the Tauri client must reach this service through a backend that holds the key, never with the key embedded in the app. Bind to the Tailscale IP, not `0.0.0.0`.
+The service verifies each checkpoint against its card's sha256 before loading it. It returns 400 for an invalid
+request, 422 for an image it cannot decode or whose size disagrees with the request, 413 for uploads over
+`--max-upload-mb`, and 503 when no model is ready. Request bodies are not logged. The API key is server-side only:
+the Tauri client must reach this service through a backend that holds the key, never with the key embedded in the
+app. Bind to localhost for a same-host backend or to the Tailscale IP for direct tailnet access, never `0.0.0.0`.
 
 ## Design notes
 
