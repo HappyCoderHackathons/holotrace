@@ -71,7 +71,8 @@ def export_crops(
         counts: Counter[str] = Counter()
         for label in LABELS:
             (out_root / split / label).mkdir(parents=True, exist_ok=True)
-        for item in read_manifest(manifest):
+        items = read_manifest(manifest)
+        for n, item in enumerate(items, 1):
             page, boxes, labels = load_annotated_page(item)
             stem = f"{item.group}_{item.image.stem}"
             for i, (box, label_index) in enumerate(zip(boxes, labels, strict=True)):
@@ -87,8 +88,9 @@ def export_crops(
                     limit_size(extract_crop(page, tuple(box), context_pad), crop_max_side),
                 )
                 counts[BACKGROUND] += 1
+            if n % 50 == 0 or n == len(items):
+                print(f"{split}: {n}/{len(items)} pages, {sum(counts.values())} crops", flush=True)
         report[split] = dict(counts.most_common())
-        print(f"{split}: {sum(counts.values())} crops", flush=True)
 
     meta = {
         "context_pad": context_pad,
