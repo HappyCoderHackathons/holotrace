@@ -10,6 +10,7 @@ It exposes training metrics and logs only, never datasets or user content. Bind 
 
 import json
 import os
+import re
 import shutil
 import time
 from http import HTTPStatus
@@ -22,6 +23,7 @@ PRIMARY = {"classifier": "val_macro_f1", "detector": "val_map"}
 # No progress update for this long while training means the process is probably gone (evaluation can be slow on CPU)
 STALE_SECONDS = 15 * 60
 PAGE = Path(__file__).with_name("dashboard.html")
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 
 
 def _read_json(path: Path) -> dict | None:
@@ -46,12 +48,17 @@ def _read_records(path: Path) -> list[dict]:
 def _tail(path: Path, lines: int = 60, max_bytes: int = 32_768) -> list[str]:
     try:
         with path.open("rb") as fh:
-            fh.seek(max(0, path.stat().st_size - max_bytes))
+            offset = max(0, path.stat().st_size - max_bytes)
+            fh.seek(offset)
             text = fh.read().decode("utf-8", errors="replace")
     except OSError:
         return []
-    # Collapse carriage-return progress bars to their final state
-    return [line.rsplit("\r", 1)[-1] for line in text.splitlines()[-lines:]]
+    rows = text.split("\n")
+    if offset:
+        rows = rows[1:]  # first row is cut mid-line by the seek
+    # Split on \n only: progress bars redraw with \r, so keep just the last redraw of each line
+    rows = [ANSI_ESCAPE.sub("", row.rsplit("\r", 1)[-1]).rstrip() for row in rows]
+    return [row for row in rows if row][-lines:]
 
 
 def _status(run_dir: Path, progress: dict | None) -> str:
@@ -102,7 +109,10 @@ def system_stats(runs_root: Path, logs: list[Path]) -> dict:
         stats["memory"] = {"total": total, "used": total - int(fields["MemAvailable"].split()[0]) * 1024}
     usage = shutil.disk_usage(runs_root if runs_root.exists() else Path.cwd())
     stats["disk"] = {"total": usage.total, "used": usage.used}
-    stats["logs"] = [{"path": str(path), "lines": _tail(path)} for path in logs]
+    stats["logs"] = [
+        {"path": str(path), "modified": path.stat().st_mtime if path.exists() else None, "lines": _tail(path)}
+        for path in logs
+    ]
     return stats
 
 
