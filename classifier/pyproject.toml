@@ -12,6 +12,9 @@ dependencies = [
     "torchvision>=0.23",
 ]
 
+[project.optional-dependencies]
+serve = ["flask>=3.1", "waitress>=3.0"]
+
 [project.scripts]
 holotrace-ml = "holotrace_classifier.cli:main"
 
