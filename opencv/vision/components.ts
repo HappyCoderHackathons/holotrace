@@ -29,7 +29,7 @@ import {
     SOLID_MIN_STROKES,
     SOLID_OPEN_STROKES,
 } from "../config";
-import type { Rect } from "../geometry/boxes";
+import { area, aspect, longSide, near, type Rect } from "../geometry/boxes";
 import { odd } from "./ink";
 
 // How thick one stroke is, in pixels: the ink's area over the length of its centre line.
@@ -68,13 +68,6 @@ function morph(ink: Mat, op: typeof cv.MORPH_CLOSE | typeof cv.MORPH_OPEN, strok
     kernel.delete();
     return out;
 }
-
-const longSide = (r: Rect) => Math.max(r.width, r.height);
-const aspect = (r: Rect) => Math.min(r.width, r.height) / longSide(r);
-const area = (r: Rect) => r.width * r.height;
-const near = (a: Rect, b: Rect, gap: number) =>
-    Math.min(a.x + a.width + gap, b.x + b.width) > Math.max(a.x - gap, b.x) &&
-    Math.min(a.y + a.height + gap, b.y + b.height) > Math.max(a.y - gap, b.y);
 
 // The box grown by `by` pixels on every side, kept inside `ink`.
 function grow(box: Rect, by: number, ink: Mat): Rect {

@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "dev": "bun ./index.html"
+    "dev": "bun ./index.html",
+    "check": "tsc -p ."
   },
   "dependencies": {
     "opencv-ts": "^1.3.6"

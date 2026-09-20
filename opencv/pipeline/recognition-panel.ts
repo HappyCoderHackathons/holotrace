@@ -1,10 +1,8 @@
 // Showing the recognition JSON on the page, and saving it and the image it describes as files.
 
 import cv, { Mat } from "opencv-ts";
+import { DOWNLOAD_IMAGE_NAME, DOWNLOAD_JSON_NAME } from "../config";
 import type { Recognition } from "../recognition";
-
-const JSON_FILE_NAME = "recognition.json";
-const IMAGE_FILE_NAME = "captured-circuit.png";
 
 const panel = () => document.getElementById("recognition-panel") as HTMLDetailsElement;
 const jsonButton = () => document.getElementById("save-json") as HTMLButtonElement;
@@ -25,13 +23,13 @@ export function showRecognition(recognition: Recognition, image: Mat) {
     panel().hidden = false;
 
     jsonButton().disabled = false;
-    jsonButton().onclick = () => download(new Blob([json], { type: "application/json" }), JSON_FILE_NAME);
+    jsonButton().onclick = () => download(new Blob([json], { type: "application/json" }), DOWNLOAD_JSON_NAME);
 
     imageButton().disabled = false;
     imageButton().onclick = () => {
         const canvas = document.createElement("canvas");
         cv.imshow(canvas, image);
-        canvas.toBlob((blob) => blob && download(blob, IMAGE_FILE_NAME), "image/png");
+        canvas.toBlob((blob) => blob && download(blob, DOWNLOAD_IMAGE_NAME), "image/png");
     };
 }
 
