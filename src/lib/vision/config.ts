@@ -172,6 +172,21 @@ export const SWEEP_TIGHT_PAD = 3;
 export const MERGE_MAX_SIZE_RATIO = 1.6;
 export const MERGE_SIZE_MIN_BOXES = 3;
 
+// ---- Tracing the wires between components (see wires.ts) ----
+
+// Wires are traced on a copy scaled so that a pen stroke is about this many pixels wide, which keeps big photos fast.
+export const WIRE_TRACE_STROKE_PIXELS = 3;
+// Gaps in a wire up to this many strokes wide are bridged (a hand-drawn wire is rarely unbroken).
+export const WIRE_CLOSE_STROKES = 2;
+// A piece of ink whose longer side is under this many strokes is a speck or text, not a wire.
+export const WIRE_MIN_STROKES = 4;
+// A wire touches a component if it comes within this many strokes of its box.
+export const WIRE_CONTACT_REACH_STROKES = 2;
+// Contacts of one wire on one component closer together than this many strokes are one contact.
+export const WIRE_CONTACT_MERGE_STROKES = 3;
+// How well the ink must match a textbook drawing before the way that drawing is turned is believed (0 to 1).
+export const ORIENTATION_MIN_SCORE = 0.5;
+
 // ---- Files the dev page downloads (also read by circuit-stuff/recognize.ts to pair them up) ----
 
 export const DOWNLOAD_JSON_NAME = "recognition.json";

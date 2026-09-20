@@ -1,9 +1,9 @@
 // Deciding when to take the screenshot, and taking it.
 
-import cv, { Mat } from "opencv-ts";
-import { CAPTURE_PADDING, HOLD_DRAIN, STABLE_IOU } from "../config";
-import { iou, type Rect } from "../geometry/boxes";
-import { state } from "../state";
+import cv, { Mat } from "../../src/lib/vision/cv";
+import { CAPTURE_PADDING, HOLD_DRAIN, STABLE_IOU } from "../../src/lib/vision/config";
+import { iou, type Rect } from "../../src/lib/vision/boxes";
+import { state } from "../../src/lib/vision/state";
 
 // Watches the circuit box over time like a charge meter. Every frame the circuit is seen holding
 // still it charges, and every frame it is missing or has moved it drains (at HOLD_DRAIN times the

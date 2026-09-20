@@ -1,8 +1,8 @@
 // State shared between the live camera stage and the still-image stage.
 
 import type { Mat } from "opencv-ts";
-import type { Rect } from "./geometry/boxes";
-import type { Match } from "./vision/classify";
+import type { Rect } from "./boxes";
+import type { Match } from "./classify";
 
 // What the still-image stage works out once, so each preview step can reuse it.
 export type StillAnalysis = {

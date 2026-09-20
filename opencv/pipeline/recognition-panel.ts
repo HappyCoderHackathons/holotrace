@@ -1,8 +1,8 @@
 // Showing the recognition JSON on the page, and saving it and the image it describes as files.
 
-import cv, { Mat } from "opencv-ts";
-import { DOWNLOAD_IMAGE_NAME, DOWNLOAD_JSON_NAME } from "../config";
-import type { Recognition } from "../recognition";
+import cv, { Mat } from "../../src/lib/vision/cv";
+import { DOWNLOAD_IMAGE_NAME, DOWNLOAD_JSON_NAME } from "../../src/lib/vision/config";
+import type { Recognition } from "../../src/lib/vision/recognition";
 
 const panel = () => document.getElementById("recognition-panel") as HTMLDetailsElement;
 const jsonButton = () => document.getElementById("save-json") as HTMLButtonElement;

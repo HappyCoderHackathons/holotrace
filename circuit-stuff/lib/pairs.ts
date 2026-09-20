@@ -2,7 +2,7 @@
 
 import { readdir, stat } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { DOWNLOAD_IMAGE_NAME, DOWNLOAD_JSON_NAME } from "../../opencv/config";
+import { DOWNLOAD_IMAGE_NAME, DOWNLOAD_JSON_NAME } from "../../src/lib/vision/config";
 
 export const IMAGE_TYPES: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg" };
 

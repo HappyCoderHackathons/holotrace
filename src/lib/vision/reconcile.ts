@@ -28,7 +28,7 @@ import {
     MERGE_SUPPORT_IOU,
     MERGE_SWEEP_NMS,
 } from "./config";
-import { centreInside, type Corners, iouCorners as iou, longSideCorners as longSide } from "./geometry/boxes";
+import { centreInside, type Corners, iouCorners as iou, longSideCorners as longSide } from "./boxes";
 import { isComponentLabel, toClassifierLabel } from "./labels";
 
 // What a request region and a model prediction hold that is needed here (the recognition-v0 JSON satisfies both).

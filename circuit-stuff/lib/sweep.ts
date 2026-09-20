@@ -1,15 +1,15 @@
-// The sweep for a pair (see opencv/candidates.ts and opencv/reconcile.ts): a grid of windows added to its
+// The sweep for a pair (see src/lib/vision/candidates.ts and reconcile.ts): a grid of windows added to its
 // request, and the ink of its image so the windows can be judged and tightened the way the app does.
 
 import { extname } from "node:path";
-import { evenlyThinned, gridWindows, SWEEP_ID_PREFIX } from "../../opencv/candidates";
-import { DETECT_WIDTH, MAX_PROPOSALS } from "../../opencv/config";
-import { toCorners } from "../../opencv/geometry/boxes";
-import type { ProposedRegion } from "../../opencv/reconcile";
-import { whenOpenCvReady } from "../../opencv/runtime";
-import { state } from "../../opencv/state";
-import { inkMask } from "../../opencv/vision/ink";
-import { tightenRegions, windowsWithInk } from "../../opencv/vision/sweep";
+import { evenlyThinned, gridWindows, SWEEP_ID_PREFIX } from "../../src/lib/vision/candidates";
+import { DETECT_WIDTH, MAX_PROPOSALS } from "../../src/lib/vision/config";
+import { toCorners } from "../../src/lib/vision/boxes";
+import type { ProposedRegion } from "../../src/lib/vision/reconcile";
+import { whenOpenCvReady } from "./opencv";
+import { state } from "../../src/lib/vision/state";
+import { inkMask } from "../../src/lib/vision/ink";
+import { tightenRegions, windowsWithInk } from "../../src/lib/vision/sweep";
 import type { LoadedPair } from "./load-pair";
 import { decodePng } from "./png";
 

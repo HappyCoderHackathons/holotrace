@@ -1,11 +1,11 @@
 import cv, { type Mat } from 'opencv-ts';
-import { DETECT_WIDTH, SHARPEN_AMOUNT, SHARPEN_SIGMA } from '../../opencv/config';
-import { buildRecognition } from '../../opencv/recognition';
-import { state } from '../../opencv/state';
-import { classify } from '../../opencv/vision/classify';
-import { findComponents } from '../../opencv/vision/components';
-import { inkMask } from '../../opencv/vision/ink';
-import type { OpenCvRecognitionInput } from './recognition';
+import { DETECT_WIDTH, SHARPEN_AMOUNT, SHARPEN_SIGMA } from "./vision/config";
+import { buildRecognition } from "./vision/recognition";
+import { state } from "./vision/state";
+import { classify } from "./vision/classify";
+import { findComponents } from "./vision/components";
+import { inkMask } from "./vision/ink";
+import type { OpenCvRecognitionInput } from "./recognition";
 
 function waitForOpenCv(): Promise<void> {
 	try {

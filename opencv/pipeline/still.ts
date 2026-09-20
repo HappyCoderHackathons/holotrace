@@ -1,12 +1,12 @@
 // The still stage: works on the captured circuit after the camera and circuit detection stop.
 
-import cv, { Mat } from "opencv-ts";
-import { COMPONENT_COLOR, COMPONENT_CROP_MARGIN_STROKES, SHARPEN_AMOUNT, SHARPEN_SIGMA } from "../config";
-import { buildRecognition } from "../recognition";
-import { state } from "../state";
-import { classify, nameOf } from "../vision/classify";
-import { findComponents } from "../vision/components";
-import { inkMask } from "../vision/ink";
+import cv, { Mat } from "../../src/lib/vision/cv";
+import { COMPONENT_COLOR, COMPONENT_CROP_MARGIN_STROKES, SHARPEN_AMOUNT, SHARPEN_SIGMA } from "../../src/lib/vision/config";
+import { buildRecognition } from "../../src/lib/vision/recognition";
+import { state } from "../../src/lib/vision/state";
+import { classify, nameOf } from "../../src/lib/vision/classify";
+import { findComponents } from "../../src/lib/vision/components";
+import { inkMask } from "../../src/lib/vision/ink";
 import { showRecognition } from "./recognition-panel";
 import { makePreview, type Step } from "./preview";
 

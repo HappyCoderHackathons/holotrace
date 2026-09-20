@@ -23,7 +23,7 @@ Options:
   --html          write a report per pair (the image with boxes drawn on it) to the output folder
   --json          also write the raw response (and the merged components, with --sweep) per pair to the output folder
   --sweep         also send a grid of windows over the whole image, and merge what the model says about them
-                  with the first pass's boxes (see opencv/reconcile.ts)
+                  with the first pass's boxes (see src/lib/vision/reconcile.ts)
   --out DIR       output folder (default: circuit-stuff/results, which git ignores)
   --url URL       model API address (default: HOLOTRACE_MODEL_API_URL)
   --timeout SEC   give up on a request after this long (default ${DEFAULT_TIMEOUT_SECONDS})

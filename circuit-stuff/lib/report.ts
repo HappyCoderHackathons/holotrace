@@ -2,8 +2,8 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { isSweepId } from "../../opencv/candidates";
-import type { Component, Source } from "../../opencv/reconcile";
+import { isSweepId } from "../../src/lib/vision/candidates";
+import type { Component, Source } from "../../src/lib/vision/reconcile";
 import type { BoundingBox, RecognitionResult } from "../../src/lib/recognition";
 import { agrees, downstreamUse } from "./labels";
 import type { LoadedPair } from "./load-pair";
@@ -57,7 +57,7 @@ export function printResult(loaded: LoadedPair, result: RecognitionResult, secon
     }
     console.log(`summary: ${predictions.length} regions; the model agrees with the local guess on ${agreeing}, differs on ${differing}, and ${noGuess} had no local guess`);
     console.log(`         ${usable} would become components with pins in the normalizer`);
-    console.log("  (= agrees, ! differs; local names are mapped to the classifier's labels in opencv/labels.ts)");
+    console.log("  (= agrees, ! differs; local names are mapped to the classifier's labels in src/lib/vision/labels.ts)");
 }
 
 // What each source of a merged component means, for the console and the report.

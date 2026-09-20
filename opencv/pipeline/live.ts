@@ -1,8 +1,8 @@
 // The live stage: camera frames in, and a screenshot of the circuit out once it holds still.
 
-import cv, { Mat } from "opencv-ts";
-import { BLOB_KERNEL, CAPTURE_CANVAS_ID, HOLD_MS, HOLD_OPEN_MS, LIVE_INK_ATTEMPTS } from "../config";
-import { state } from "../state";
+import cv, { Mat } from "../../src/lib/vision/cv";
+import { BLOB_KERNEL, CAPTURE_CANVAS_ID, HOLD_MS, HOLD_OPEN_MS, LIVE_INK_ATTEMPTS } from "../../src/lib/vision/config";
+import { state } from "../../src/lib/vision/state";
 import { captureCircuit, hold, trackCircuit } from "../vision/capture";
 import { findCircuit, type FoundCircuit } from "../vision/circuit";
 import type { Step } from "./preview";
