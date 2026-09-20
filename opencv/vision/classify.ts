@@ -5,23 +5,25 @@
 // correlation, so pen thickness and small wobbles do not matter much. The result is a label and a
 // confidence between 0 and 1; whether that is high enough to trust is left to the caller.
 
-import cv, { Mat } from "opencv-ts";
-import { LABEL_MIN_CONFIDENCE, LABEL_MIN_GENERIC_CONFIDENCE, MATCH_BLUR_SIGMA, MATCH_SIZE, SIZE_MISMATCH } from "../config";
+import cv, { type Mat } from "opencv-ts";
+import { LABEL_MIN_CONFIDENCE, LABEL_MIN_GROUP_CONFIDENCE, MATCH_BLUR_SIGMA, MATCH_SIZE, SIZE_MISMATCH } from "../config";
 import type { Rect } from "../geometry/boxes";
-import { isLead, SYMBOLS, type SymbolDrawing } from "./symbols";
+import { type Exemplar, EXEMPLARS } from "./exemplars";
+import { type Group, isLead, SYMBOLS, type SymbolDrawing } from "./symbols";
 
-// The best symbol for a component (its name, and a coarser one), and how well it matches (0 to 1).
-export type Match = { label: string; family: string; confidence: number };
+// The best symbol for a component (its own name, and the group it belongs to), and how well it
+// matches (0 to 1).
+export type Match = { label: string; group: Group; confidence: number };
 
-// What to call a component: the symbol's own name for a good match, its coarser name for a rough one
-// (still a best guess), and nothing when there is no good guess at all.
+// What to call a component: the symbol's own name for a good match, the name of its group for a rough
+// one (still a best guess), and nothing when there is no good guess at all.
 export function nameOf(match: Match): string | null {
     if (match.confidence >= LABEL_MIN_CONFIDENCE) return match.label;
-    return match.confidence >= LABEL_MIN_GENERIC_CONFIDENCE ? match.family : null;
+    return match.confidence >= LABEL_MIN_GROUP_CONFIDENCE ? match.group : null;
 }
 
 // One reference picture: a symbol in one orientation.
-type Reference = { label: string; family: string; aspect: number; strokes?: [number, number]; pixels: Float32Array };
+type Reference = { label: string; group: Group; minConfidence: number; aspect: number; strokes?: [number, number]; pixels: Float32Array };
 
 // A 1-channel picture of line art (white on black), any size, as a blurred MATCH_SIZE square.
 function describe(art: Mat): Float32Array {
@@ -68,7 +70,30 @@ function drawSymbol(parts: SymbolDrawing["parts"]): { art: Mat; aspect: number }
     return { art, aspect: bounds.width / bounds.height };
 }
 
-// Every symbol, with and without its leads, in its eight orientations. Built once, on first use.
+// Adds a picture to the references in its eight orientations: turned by quarters, and mirrored.
+function addOrientations(list: Reference[], meta: Omit<Reference, "aspect" | "pixels">, aspect: number, pixels: Float32Array) {
+    for (const flipped of [false, true]) {
+        let current = flipped ? mirror(pixels) : pixels;
+        for (let quarter = 0; quarter < 4; quarter++) {
+            // Turned a quarter, a drawing's width and height swap.
+            list.push({ ...meta, aspect: quarter % 2 === 0 ? aspect : 1 / aspect, pixels: current });
+            current = turn(current);
+        }
+    }
+}
+
+// An example's picture: its bits (see exemplars.ts) are the ink of a MATCH_SIZE square.
+function describeExemplar(example: Exemplar): Float32Array {
+    const bytes = Uint8Array.from(atob(example.bits), (ch) => ch.charCodeAt(0));
+    const ink = Array.from({ length: MATCH_SIZE * MATCH_SIZE }, (_, n) => ((bytes[n >> 3] >> (7 - (n & 7))) & 1 ? 255 : 0));
+    const art = cv.matFromArray(MATCH_SIZE, MATCH_SIZE, cv.CV_8UC1, ink);
+    const pixels = describe(art);
+    art.delete();
+    return pixels;
+}
+
+// The textbook symbols (with and without their leads) and the real examples, in every orientation.
+// Built once, on first use.
 function buildReferences(): Reference[] {
     const list: Reference[] = [];
     for (const symbol of SYMBOLS) {
@@ -78,15 +103,11 @@ function buildReferences(): Reference[] {
             const { art, aspect } = drawSymbol(parts);
             const pixels = describe(art);
             art.delete();
-            for (const flipped of [false, true]) {
-                let current = flipped ? mirror(pixels) : pixels;
-                for (let quarter = 0; quarter < 4; quarter++) {
-                    // Turned a quarter, a drawing's width and height swap.
-                    list.push({ label: symbol.label, family: symbol.family ?? symbol.label, aspect: quarter % 2 === 0 ? aspect : 1 / aspect, strokes: symbol.strokes, pixels: current });
-                    current = turn(current);
-                }
-            }
+            addOrientations(list, { label: symbol.label, group: symbol.group, strokes: symbol.strokes, minConfidence: symbol.minConfidence ?? 0 }, aspect, pixels);
         }
+    }
+    for (const example of EXEMPLARS) {
+        addOrientations(list, { label: example.label, group: example.group, minConfidence: 0 }, example.aspect, describeExemplar(example));
     }
     return list;
 }
@@ -124,7 +145,7 @@ export function classify(ink: Mat, box: Rect, thickness: number): Match {
     const boxAspect = box.width / box.height;
     const strokes = Math.max(box.width, box.height) / thickness;
 
-    let best: Match = { label: "", family: "", confidence: 0 };
+    let best: Match = { label: "", group: "miscellaneous", confidence: 0 };
     for (const reference of references) {
         // A box of the wrong proportions is unlikely to hold this symbol, however the lines line up.
         const ratio = boxAspect / reference.aspect;
@@ -132,7 +153,7 @@ export function classify(ink: Mat, box: Rect, thickness: number): Match {
         // A symbol of the wrong size for this box is less likely, too.
         const sized = reference.strokes === undefined || (strokes >= reference.strokes[0] && strokes <= reference.strokes[1]) ? 1 : SIZE_MISMATCH;
         const confidence = Math.max(0, correlation(pixels, reference.pixels)) * shape * sized;
-        if (confidence > best.confidence) best = { label: reference.label, family: reference.family, confidence };
+        if (confidence >= reference.minConfidence && confidence > best.confidence) best = { label: reference.label, group: reference.group, confidence };
     }
     return best;
 }
