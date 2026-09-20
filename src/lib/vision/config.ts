@@ -184,6 +184,17 @@ export const WIRE_MIN_STROKES = 4;
 export const WIRE_CONTACT_REACH_STROKES = 2;
 // Contacts of one wire on one component closer together than this many strokes are one contact.
 export const WIRE_CONTACT_MERGE_STROKES = 3;
+// Skeleton junction pixels closer together than this many strokes are one junction (a thick crossing makes several).
+export const WIRE_JUNCTION_MERGE_STROKES = 2.5;
+// A wire contact is tied to the wire's skeleton if it is within this many strokes of it.
+export const WIRE_ATTACH_STROKES = 3;
+// A dead-end twig off a junction shorter than this many strokes is a rough pen edge, not a wire.
+export const WIRE_SPUR_STROKES = 3;
+// Where a junction is judged: the ink within this many strokes of it, and if more than this fraction is ink it is a dot.
+export const WIRE_DOT_STROKES = 2;
+export const WIRE_DOT_FILL = 0.7;
+// The direction of a wire leaving a junction is read this many strokes out along it.
+export const WIRE_ARM_STROKES = 4;
 // How well the ink must match a textbook drawing before the way that drawing is turned is believed (0 to 1).
 export const ORIENTATION_MIN_SCORE = 0.5;
 

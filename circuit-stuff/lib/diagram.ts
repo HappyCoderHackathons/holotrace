@@ -16,9 +16,9 @@ export type DiagramResult = { diagram: Diagram; report: BuildReport };
 // Works out the wiring between the components from the image's ink, and builds the diagram.
 export function makeDiagram(components: Component[], ink: PairInk): DiagramResult {
     const boxes = components.map((component) => toRect(component.box));
-    const nets = traceWires(ink.ink, boxes, ink.thickness);
+    const graph = traceWires(ink.ink, boxes, ink.thickness);
     const orientations = components.map((component, n) => (partForLabel(component.label).directional ? orientation(ink.ink, boxes[n], symbolsFor(component.label)) : null));
-    return buildDiagram({ components, orientations, nets });
+    return buildDiagram({ components, orientations, graph });
 }
 
 export async function saveDiagram(dir: string, name: string, diagram: Diagram): Promise<string> {

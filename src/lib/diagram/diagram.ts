@@ -15,7 +15,7 @@
 import type { Orientation } from "../vision/classify";
 import { ORIENTATION_MIN_SCORE } from "../vision/config";
 import type { Component } from "../vision/reconcile";
-import type { Net } from "../vision/wires";
+import type { WireEnd, WireGraph } from "../vision/wires";
 import { GENERIC_TYPE, NODE_TYPE, partByType, partForLabel, type PartDef, type PinDef, pinsOf } from "./parts";
 
 export const DIAGRAM_VERSION = 1;
@@ -47,11 +47,11 @@ export interface Diagram {
 // ---- Building a diagram from what was found in a photo ----
 
 export interface BuildInput {
-    // The final components (from reconcile), in the order the nets' contacts index them.
+    // The final components (from reconcile), in the order the graph's contacts index them.
     components: Component[];
     // How each is turned, when known.
     orientations: (Orientation | null)[];
-    nets: Net[];
+    graph: WireGraph;
 }
 
 // Everything below is in pixels of the photo, for drawing over it.
@@ -91,7 +91,7 @@ function wireColour(endpoints: string[]): string {
 
 // Builds the diagram of a circuit: its parts (placed and named), and a connection for every wire between two parts,
 // or a junction node where a wire joins three or more.
-export function buildDiagram({ components, orientations, nets }: BuildInput): { diagram: Diagram; report: BuildReport } {
+export function buildDiagram({ components, orientations, graph }: BuildInput): { diagram: Diagram; report: BuildReport } {
     const sizes = components.map((c) => Math.max(c.box.x1 - c.box.x0, c.box.y1 - c.box.y0)).sort((a, b) => a - b);
     const median = sizes[Math.floor(sizes.length / 2)] || 1;
     // Image pixels to canvas units, and the middle of the circuit to the middle of the canvas.
@@ -103,8 +103,9 @@ export function buildDiagram({ components, orientations, nets }: BuildInput): { 
     const toCanvas = (p: Point): Point => ({ x: CANVAS_CENTRE.x + (p.x - middle.x) * scale, y: CANVAS_CENTRE.y + (p.y - middle.y) * scale });
 
     // Contacts by component, so generic parts can be given as many pins as wires that reach them.
-    const contactsByComponent = components.map(() => [] as { net: number; x: number; y: number }[]);
-    nets.forEach((net, n) => net.contacts.forEach((c) => contactsByComponent[c.component]?.push({ net: n, x: c.x, y: c.y })));
+    const { contacts: allContacts, nodes: graphNodes, links } = graph;
+    const contactsByComponent = components.map(() => [] as { id: number; x: number; y: number }[]);
+    allContacts.forEach((c, id) => contactsByComponent[c.component]?.push({ id, x: c.x, y: c.y }));
 
     // Parts, named in reading order.
     const order = components.map((_, n) => n).sort((a, b) => centres[a].y - centres[b].y || centres[a].x - centres[b].x);
@@ -137,56 +138,64 @@ export function buildDiagram({ components, orientations, nets }: BuildInput): { 
         const offset = turned(pin, part.rotation, part.mirrored);
         return { x: part.centre.x + offset.x / scale, y: part.centre.y + offset.y / scale };
     };
-    const endpoints = nets.map(() => new Set<string>());
+    // A contact takes the nearest pin nobody else has; when every pin is taken it shares the nearest one.
+    const contactEndpoint = new Map<number, string>();
     const pinPoints = new Map<string, Point>();
     let unassigned = 0;
     for (const part of placed) {
         const contacts = contactsByComponent[part.index];
         const pairs = contacts
-            .flatMap((contact, c) => part.pins.map((pin) => ({ c, contact, pin, d: Math.hypot(pinAt(part, pin).x - contact.x, pinAt(part, pin).y - contact.y) })))
+            .flatMap((contact) => part.pins.map((pin) => ({ contact, pin, d: Math.hypot(pinAt(part, pin).x - contact.x, pinAt(part, pin).y - contact.y) })))
             .sort((a, b) => a.d - b.d);
-        const done = new Set<number>();
-        const owner = new Map<string, number>();
-        for (const { c, contact, pin } of pairs) {
-            if (done.has(c) || (owner.has(pin.id) && owner.get(pin.id) !== contact.net)) continue;
-            done.add(c);
-            owner.set(pin.id, contact.net);
-            endpoints[contact.net].add(`${part.id}:${pin.id}`);
+        const usedPins = new Set<string>();
+        const take = (contact: { id: number }, pin: PinDef) => {
+            contactEndpoint.set(contact.id, `${part.id}:${pin.id}`);
             pinPoints.set(`${part.id}:${pin.id}`, pinAt(part, pin));
+        };
+        for (const { contact, pin } of pairs) {
+            if (contactEndpoint.has(contact.id) || usedPins.has(pin.id)) continue;
+            usedPins.add(pin.id);
+            take(contact, pin);
         }
-        unassigned += contacts.length - done.size;
+        for (const { contact, pin } of pairs) {
+            if (contactEndpoint.has(contact.id)) continue;
+            unassigned++;
+            take(contact, pin);
+        }
     }
 
-    // Wires: one connection between two parts, a junction node where three or more meet.
-    const parts: DiagramPart[] = [];
-    const connections: DiagramConnection[] = [];
-    const overlay: BuildOverlay = { pins: [], links: [], nodes: [] };
-    const dangling: BuildReport["dangling"] = [];
-    let nodeCount = 0;
-    nets.forEach((net, n) => {
-        const list = [...endpoints[n]];
-        if (list.length === 1) {
-            const [part, pin] = list[0].split(":");
-            dangling.push({ part, pin });
-            return;
-        }
-        const colour = wireColour(list);
-        if (list.length === 2) {
-            connections.push([list[0], list[1], colour, []]);
-            const [a, b] = [pinPoints.get(list[0])!, pinPoints.get(list[1])!];
-            overlay.links.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, colour });
-        } else if (list.length >= 3) {
-            const id = `n${++nodeCount}`;
-            const at = toCanvas(net.centre);
-            parts.push({ type: NODE_TYPE, id, top: Math.round(at.y), left: Math.round(at.x), attrs: {} });
-            overlay.nodes.push({ id, x: net.centre.x, y: net.centre.y });
-            for (const endpoint of list) {
-                connections.push([endpoint, `${id}:n`, colour, []]);
-                const p = pinPoints.get(endpoint)!;
-                overlay.links.push({ x1: p.x, y1: p.y, x2: net.centre.x, y2: net.centre.y, colour });
-            }
-        }
+    // Wires: a connection for every link between two things, where a thing is a pin or a junction node.
+    const nodeId = (n: number) => `n${n + 1}`;
+    const endpointOf = (end: WireEnd): string | undefined => ("node" in end ? `${nodeId(end.node)}:n` : contactEndpoint.get(end.contact));
+    const pointOf = (end: WireEnd): Point => ("node" in end ? graphNodes[end.node] : pinPoints.get(contactEndpoint.get(end.contact)!)!);
+    const parts: DiagramPart[] = graphNodes.map((node, n) => {
+        const at = toCanvas(node);
+        return { type: NODE_TYPE, id: nodeId(n), top: Math.round(at.y), left: Math.round(at.x), attrs: {} };
     });
+    const connections: DiagramConnection[] = [];
+    const overlay: BuildOverlay = { pins: [], links: [], nodes: graphNodes.map((node, n) => ({ id: nodeId(n), x: node.x, y: node.y })) };
+    const seenLinks = new Set<string>();
+    const degree = new Map<string, number>();
+    for (const [from, to] of links) {
+        const a = endpointOf(from);
+        const b = endpointOf(to);
+        if (a === undefined || b === undefined || a === b || seenLinks.has([a, b].sort().join(" "))) continue;
+        seenLinks.add([a, b].sort().join(" "));
+        const colour = wireColour([a, b]);
+        connections.push([a, b, colour, []]);
+        for (const end of [a, b]) degree.set(end, (degree.get(end) ?? 0) + 1);
+        const [p, q] = [pointOf(from), pointOf(to)];
+        overlay.links.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, colour });
+    }
+    const nodeCount = graphNodes.length;
+    // A pin with a wire that goes nowhere else: the wire reaches the part and stops (a wire to nothing, or a pin no link uses).
+    const dangling: BuildReport["dangling"] = [];
+    for (const endpoint of pinPoints.keys()) {
+        if ((degree.get(endpoint) ?? 0) === 0) {
+            const [part, pin] = endpoint.split(":");
+            dangling.push({ part, pin });
+        }
+    }
 
     for (const [id, point] of pinPoints) overlay.pins.push({ part: id.split(":")[0], pin: id.split(":")[1], x: point.x, y: point.y });
 
