@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-auto';
+import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -10,9 +10,7 @@ const config = {
 		runes: ({ filename }) => (filename.includes('node_modules') ? undefined : true)
 	},
 	kit: {
-		// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto
-		// for a list. Switch to a specific adapter once the deployment target is settled.
-		adapter: adapter()
+		adapter: adapter({ fallback: 'index.html' })
 	}
 };
 
