@@ -1,6 +1,5 @@
 <script lang="ts">
 	import {
-		Copy,
 		Trash2,
 		Undo2,
 		Redo2,
@@ -10,15 +9,14 @@
 		Square,
 		Pencil,
 		Eye,
-		Cable,
 		SlidersHorizontal,
 		Check
 	} from 'lucide-svelte';
 	import {
 		editMode,
-		editTool,
 		selectedIds,
 		selectedWireIds,
+		selectedNodeIds,
 		wireColor,
 		wireStyle,
 		deleteSelected,
@@ -98,13 +96,10 @@
 
 	<span class="mx-1.5 h-6 w-px bg-chrome-600"></span>
 
-	<button class="chrome-icon-btn" aria-label="Duplicate" disabled={!hasComponentSelection}>
-		<Copy size={16} />
-	</button>
 	<button
 		class="chrome-icon-btn"
 		aria-label="Delete"
-		disabled={!hasComponentSelection && !hasWireSelection}
+		disabled={!$editMode || (!hasComponentSelection && !hasWireSelection && $selectedNodeIds.size === 0)}
 		onclick={deleteSelected}
 	>
 		<Trash2 size={16} />
@@ -121,20 +116,6 @@
 
 	<span class="mx-1.5 h-6 w-px bg-chrome-600"></span>
 
-	<button
-		class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:text-chrome-500"
-		class:bg-accent={$editTool === 'wire'}
-		class:text-white={$editTool === 'wire'}
-		class:text-chrome-200={$editTool !== 'wire'}
-		class:hover:bg-chrome-700={$editTool !== 'wire'}
-		disabled={!$editMode}
-		aria-pressed={$editTool === 'wire'}
-		title={$editMode ? 'Draw wires between pins' : 'Switch to Edit mode to draw wires'}
-		onclick={() => editTool.set($editTool === 'wire' ? 'select' : 'wire')}
-	>
-		<Cable size={15} />
-		Wire
-	</button>
 
 	{#if $isNarrow}
 		<!--

@@ -1,13 +1,13 @@
 // Entry point: opens the camera, runs the live stage until a circuit is captured, then hands the
 // captured still to the still stage. See pipeline/ for the two stages and config.ts for settings.
 
-import cv from "opencv-ts";
-import { DETECT_WIDTH, RESET_KEY } from "./config";
+import cv from "../src/lib/vision/cv";
+import { RESET_KEY } from "../src/lib/vision/config";
 import { liveSteps } from "./pipeline/live";
 import { clearRecognition } from "./pipeline/recognition-panel";
 import { makePreview } from "./pipeline/preview";
 import { processStill } from "./pipeline/still";
-import { clearCapture, state } from "./state";
+import { clearCapture, detectScaleFor, state } from "../src/lib/vision/state";
 import { resetHold } from "./vision/capture";
 
 // Waits until the video element is delivering frames of the given width. After the camera is
@@ -66,8 +66,8 @@ async function start() {
         const { videoWidth, videoHeight } = video;
         state.fullFrame?.delete();
         state.fullFrame = new cv.Mat(videoHeight, videoWidth, cv.CV_8UC4);
-        state.detectScale = videoWidth / DETECT_WIDTH;
-        const detectSize = new cv.Size(DETECT_WIDTH, Math.round(videoHeight / state.detectScale));
+        state.detectScale = detectScaleFor(videoWidth);
+        const detectSize = new cv.Size(Math.round(videoWidth / state.detectScale), Math.round(videoHeight / state.detectScale));
         const capture = new cv.VideoCapture(video);
 
         const tick = () => {

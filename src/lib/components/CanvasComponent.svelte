@@ -16,6 +16,8 @@
 		armedPinId?: string | null;
 		onpointerdown?: (event: PointerEvent) => void;
 		onclick?: (event: MouseEvent) => void;
+		/** Enter or Space on the focused part. */
+		onSelect?: () => void;
 		onPinPointerDown?: (event: PointerEvent, pinId: string) => void;
 		onPinPointerUp?: (event: PointerEvent, pinId: string) => void;
 	}
@@ -32,6 +34,7 @@
 		armedPinId = null,
 		onpointerdown = () => {},
 		onclick = () => {},
+		onSelect = () => {},
 		onPinPointerDown = () => {},
 		onPinPointerUp = () => {}
 	}: Props = $props();
@@ -40,6 +43,18 @@
 	/** Visible dot stays small; the hit area is what grows for fingers. */
 	const pinRadius = $derived(editable ? 6 : 3);
 	const hitRadius = $derived(coarse ? 22 : editable ? 10 : 6);
+
+	/**
+	 * A part's leads run along its local x, so a quarter turn stands it upright
+	 * and its wires leave through the space directly above and below the centre
+	 * — which is where the labels sit. On a schematic they move out to the side
+	 * instead, as a drawn schematic puts them.
+	 */
+	const upright = $derived(component.rotation === 90 || component.rotation === 270);
+	const labelBeside = $derived(schematic && upright);
+
+	/** Lead dots are canvas editing affordances; a schematic dots junctions only. */
+	const showPinDots = $derived(!schematic);
 </script>
 
 <g
@@ -54,6 +69,7 @@
 	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
+			onSelect();
 			onclick(e as unknown as MouseEvent);
 		}
 	}}
@@ -61,34 +77,42 @@
 	{#if selected}
 		<rect x="-38" y="-24" width="76" height="48" rx="10" fill="none" stroke="#2f6bff" stroke-width="1.5" stroke-dasharray="4 3" />
 	{/if}
-	<ComponentGlyph type={component.type} color={component.color} {lit} {active} {schematic} />
+	<ComponentGlyph
+		type={component.type}
+		color={component.color}
+		{lit}
+		{active}
+		{schematic}
+		label={component.label}
+		pinCount={component.pins.length}
+	/>
 
 	{#if showLabels}
 		<g transform={`rotate(${-component.rotation}) scale(${mirrorScale} 1)`}>
 			<text
-				x="0"
-				y={schematic ? -30 : -42}
-				text-anchor="middle"
+				x={labelBeside ? 24 : 0}
+				y={labelBeside ? -2 : schematic ? -30 : -42}
+				text-anchor={labelBeside ? 'start' : 'middle'}
 				font-size={schematic ? 12 : 11}
 				font-weight="600"
 				fill={schematic ? '#94a3b8' : '#27313b'}
 				paint-order="stroke"
-				stroke="#f8fafc"
-				stroke-width={schematic ? 0 : 5}
+				stroke={schematic ? '#ffffff' : '#f8fafc'}
+				stroke-width={schematic ? 3 : 5}
 				class="select-none"
 			>
 				{component.refId}
 			</text>
 			{#if component.value}
 				<text
-					x="0"
-					y={schematic ? 36 : 44}
-					text-anchor="middle"
+					x={labelBeside ? 24 : 0}
+					y={labelBeside ? 14 : schematic ? 36 : 44}
+					text-anchor={labelBeside ? 'start' : 'middle'}
 					font-size={schematic ? 11 : 10}
 					fill="#94a3b8"
 					paint-order="stroke"
-					stroke="#f8fafc"
-					stroke-width={schematic ? 0 : 4}
+					stroke={schematic ? '#ffffff' : '#f8fafc'}
+					stroke-width={schematic ? 3 : 4}
 					class="select-none"
 				>
 					{component.value}
@@ -103,13 +127,15 @@
 			{#if armed}
 				<circle cx={pin.x} cy={pin.y} r="13" fill="#2f6bff" opacity="0.35" class="pin-armed" pointer-events="none" />
 			{/if}
-			<circle
-				cx={pin.x}
-				cy={pin.y}
-				r={armed ? pinRadius + 2 : pinRadius}
-				fill={armed ? '#2f6bff' : editable ? '#6b7685' : '#8b95a3'}
-				pointer-events="none"
-			/>
+			{#if showPinDots || armed}
+				<circle
+					cx={pin.x}
+					cy={pin.y}
+					r={armed ? pinRadius + 2 : pinRadius}
+					fill={armed ? '#2f6bff' : editable ? '#6b7685' : '#8b95a3'}
+					pointer-events="none"
+				/>
+			{/if}
 			<!--
 				Transparent target sized for the pointer in use. Drawn after the dot
 				so it receives the press, and kept out of the a11y tree because the

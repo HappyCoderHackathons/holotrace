@@ -1,0 +1,4 @@
+# Reports and responses contain the user's circuit drawings.
+results/
+# Diagrams are built from the user's drawings too.
+diagrams/

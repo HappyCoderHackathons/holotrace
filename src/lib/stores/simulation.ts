@@ -1,16 +1,22 @@
 import { derived, writable, get } from 'svelte/store';
 import { circuit } from './circuit';
+import { endKey } from '../geometry';
 import type { CircuitComponent, SimulationState, Wire } from '../types';
 
 export const simulationRunning = writable<boolean>(false);
+/** Parts this simulator has no model for: they never pass current, so they cannot short a loop. */
+const NO_MODEL = new Set(['and', 'or', 'nand', 'nor', 'xor', 'not', 'generic', 'ground', 'terminal', 'ac-source']);
+
 export const switchStates = writable<Record<string, boolean>>({});
 
-function parseOhms(value?: string): number {
-	if (!value) return 0;
-	const match = value.match(/([\d.]+)\s*(k|K)?/);
-	if (!match) return 0;
+/** Ohms from text like "220Ω", "4.7k" or "1M", or null when there is no number (0 is a real value). */
+function parseOhms(value?: string): number | null {
+	if (!value) return null;
+	const match = value.match(/([\d.]+)\s*([kKM])?/);
+	if (!match) return null;
 	const n = parseFloat(match[1]);
-	return match[2] ? n * 1000 : n;
+	if (!Number.isFinite(n)) return null;
+	return match[2] === 'M' ? n * 1_000_000 : match[2] ? n * 1000 : n;
 }
 
 function parseVolts(value?: string): number {
@@ -43,14 +49,14 @@ function computeSimulation(components: CircuitComponent[], wires: Wire[], switch
 	};
 
 	for (const w of wires) {
-		addEdge(key(w.fromComponentId, w.fromPinId), key(w.toComponentId, w.toPinId));
+		addEdge(endKey(w.from), endKey(w.to));
 	}
 	// internal component edges (pin-to-pin through the component itself),
 	// except open switches (which block current) and the battery (a source,
 	// not a pass-through — its pins must only connect via external wires,
 	// otherwise BFS finds a trivial short-circuit path through the battery itself)
 	for (const c of components) {
-		if (c.type === 'battery') continue;
+		if (c.type === 'battery' || NO_MODEL.has(c.type)) continue;
 		const isOpenSwitch =
 			(c.type === 'switch' || c.type === 'pushbutton') && !switches[c.id];
 		if (isOpenSwitch) continue;
@@ -108,9 +114,9 @@ function computeSimulation(components: CircuitComponent[], wires: Wire[], switch
 	const ledsOnPath: string[] = [];
 	for (const c of components) {
 		if (!pathComponentIds.has(c.id)) continue;
-		if (c.type === 'resistor') totalResistance += parseOhms(c.value) || 220;
-		if (c.type === 'potentiometer') totalResistance += (parseOhms(c.value) || 10000) / 2;
-		if (c.type === 'led') {
+		if (c.type === 'resistor') totalResistance += parseOhms(c.value) ?? 220;
+		if (c.type === 'potentiometer') totalResistance += (parseOhms(c.value) ?? 10000) / 2;
+		if (c.type === 'led' || c.type === 'lamp') {
 			ledDrop += 2; // typical red LED forward voltage
 			ledsOnPath.push(c.id);
 		}
@@ -131,8 +137,8 @@ function computeSimulation(components: CircuitComponent[], wires: Wire[], switch
 
 	// mark wires along the path as carrying current
 	for (const w of wires) {
-		const a = key(w.fromComponentId, w.fromPinId);
-		const b = key(w.toComponentId, w.toPinId);
+		const a = endKey(w.from);
+		const b = endKey(w.to);
 		if (nodeSet.has(a) && nodeSet.has(b)) {
 			result.current[w.id] = normalized;
 		}

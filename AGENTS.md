@@ -76,7 +76,7 @@ When implementing changes:
 - Use TypeScript for client application code and preserve strict types across process and service boundaries.
 - Keep Svelte components focused; move reusable state and domain logic into appropriately scoped modules.
 - Keep Tauri commands narrow and validate all data crossing the webview/native boundary.
-- Do not embed the external ML service's secrets in client code or shipped Tauri binaries.
+- Do not embed the external ML service's secrets in the Svelte client. The native side is a known exception: `src-tauri/build.rs` bakes `HOLOTRACE_MODEL_API_URL` and `HOLOTRACE_ML_API_KEY` into the binary because a packaged build ships no `.env` and Android has no filesystem location to read one from. The key is therefore recoverable from a released binary. Putting the model API behind per-user authentication would remove the need for this; until then, do not widen what is baked in.
 - Keep the local OpenCV pass separable from remote inference so each stage can evolve independently.
 - Represent circuits with a stable structured model rather than coupling rendering directly to raw model output.
 - Design database access around explicit component and diagram-equivalence models once those schemas exist.

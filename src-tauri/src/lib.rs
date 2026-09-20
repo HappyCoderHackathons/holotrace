@@ -27,6 +27,21 @@ fn load_dotenv() {
     }
 }
 
+/// A model API setting, from the process or a `.env` first so a developer can
+/// point a packaged build somewhere else, then from what `build.rs` baked in.
+///
+/// The baked value is what makes the packaged builds work: none of them ship a
+/// `.env`, and Android has no filesystem location to read one from. It does
+/// mean the key is recoverable from a shipped binary, which is true of any
+/// credential a client holds; moving the model API behind per-user auth is the
+/// only real fix.
+fn setting(name: &str, baked: Option<&str>) -> Option<String> {
+    env::var(name)
+        .ok()
+        .filter(|value| !value.is_empty())
+        .or_else(|| baked.filter(|value| !value.is_empty()).map(str::to_owned))
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct OpenCvRecognitionInput {
@@ -103,14 +118,14 @@ fn decode_data_url(data_url: &str) -> Result<(String, Vec<u8>), ModelApiError> {
 async fn recognize_circuit(
     input: OpenCvRecognitionInput,
 ) -> Result<serde_json::Value, ModelApiError> {
-    let base_url = env::var("HOLOTRACE_MODEL_API_URL").map_err(|_| {
-        ModelApiError::new(
-            "HOLOTRACE_MODEL_API_URL is not configured in .env or the Tauri process.",
-        )
-    })?;
-    let api_key = env::var("HOLOTRACE_ML_API_KEY").map_err(|_| {
-        ModelApiError::new("HOLOTRACE_ML_API_KEY is not configured in .env or the Tauri process.")
-    })?;
+    let base_url = setting("HOLOTRACE_MODEL_API_URL", option_env!("HOLOTRACE_MODEL_API_URL"))
+        .ok_or_else(|| {
+            ModelApiError::new("HOLOTRACE_MODEL_API_URL is not configured for this build.")
+        })?;
+    let api_key = setting("HOLOTRACE_ML_API_KEY", option_env!("HOLOTRACE_ML_API_KEY"))
+        .ok_or_else(|| {
+            ModelApiError::new("HOLOTRACE_ML_API_KEY is not configured for this build.")
+        })?;
     let endpoint = Url::parse(&format!("{}/v0/recognize", base_url.trim_end_matches('/')))
         .map_err(|_| ModelApiError::new("HOLOTRACE_MODEL_API_URL is invalid."))?;
     let (mime, image) = decode_data_url(&input.image_data_url)?;

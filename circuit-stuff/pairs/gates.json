@@ -1,0 +1,85 @@
+{
+  "schema_version": "recognition-v0",
+  "client_preprocess_version": "opencv-v1",
+  "image_width": 301,
+  "image_height": 313,
+  "regions": [
+    {
+      "id": "region-0",
+      "box": {
+        "x0": 47,
+        "y0": 218,
+        "x1": 91,
+        "y1": 266
+      },
+      "local_label": "or_gate",
+      "local_confidence": 0.84
+    },
+    {
+      "id": "region-1",
+      "box": {
+        "x0": 107,
+        "y0": 212,
+        "x1": 144,
+        "y1": 253
+      },
+      "local_label": "or_gate",
+      "local_confidence": 0.82
+    },
+    {
+      "id": "region-2",
+      "box": {
+        "x0": 191,
+        "y0": 176,
+        "x1": 229,
+        "y1": 211
+      },
+      "local_label": "or_gate",
+      "local_confidence": 0.83
+    },
+    {
+      "id": "region-3",
+      "box": {
+        "x0": 47,
+        "y0": 133,
+        "x1": 87,
+        "y1": 165
+      },
+      "local_label": "or_gate",
+      "local_confidence": 0.85
+    },
+    {
+      "id": "region-4",
+      "box": {
+        "x0": 105,
+        "y0": 105,
+        "x1": 138,
+        "y1": 147
+      },
+      "local_label": "and_gate",
+      "local_confidence": 0.78
+    },
+    {
+      "id": "region-5",
+      "box": {
+        "x0": 163,
+        "y0": 100,
+        "x1": 198,
+        "y1": 136
+      },
+      "local_label": "and_gate",
+      "local_confidence": 0.84
+    },
+    {
+      "id": "region-6",
+      "box": {
+        "x0": 219,
+        "y0": 99,
+        "x1": 252,
+        "y1": 128
+      },
+      "local_label": "and_gate",
+      "local_confidence": 0.83
+    }
+  ]
+}
