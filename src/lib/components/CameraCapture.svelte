@@ -46,6 +46,8 @@
 	let liveCircuit = $state<LiveCircuit | null>(null);
 	let holdProgress = $state(0);
 	let videoSize = $state({ width: 0, height: 0 });
+	/** Where the circuit was in the frame that was captured, outlined on the preview. */
+	let capturedCircuit = $state<LiveCircuit | null>(null);
 	let frameRequest = 0;
 	let lastLook = 0;
 	let capturing = false;
@@ -61,6 +63,7 @@
 		if (frameRequest) cancelAnimationFrame(frameRequest);
 		frameRequest = 0;
 		liveCircuit = null;
+		capturedCircuit = null;
 		holdProgress = 0;
 		meter.reset();
 		stopStream(stream);
@@ -108,17 +111,12 @@
 		}
 	}
 
-	/** The circuit held still: take the photo and hand it on, as if it had been taken and accepted. */
+	/** The circuit held still: take the photo, as if the shutter had been pressed. Retake or Use photo follows. */
 	async function autoCapture() {
-		if (!videoEl || phase !== 'live' || capturing) return;
+		if (capturing) return;
 		capturing = true;
 		try {
-			const file = await grabFrame(videoEl);
-			teardown();
-			onCapture(file);
-		} catch (cause) {
-			errorMessage = cause instanceof CameraError ? cause.message : 'The photo could not be taken.';
-			phase = 'error';
+			await shutter();
 		} finally {
 			capturing = false;
 		}
@@ -156,6 +154,7 @@
 			releasePreview();
 			pending = file;
 			previewUrl = URL.createObjectURL(file);
+			capturedCircuit = liveCircuit;
 			phase = 'captured';
 			// The stream keeps running so Retake is instant rather than
 			// re-prompting and re-warming the sensor.
@@ -167,6 +166,7 @@
 
 	function retake() {
 		releasePreview();
+		capturedCircuit = null;
 		meter.reset();
 		phase = stream ? 'live' : 'error';
 	}
@@ -339,6 +339,27 @@
 
 			{#if phase === 'captured' && previewUrl}
 				<img src={previewUrl} alt="Captured sketch, awaiting confirmation" class="absolute inset-0 h-full w-full object-contain" />
+				{#if capturedCircuit && videoSize.width}
+					<!-- The circuit that was found in it (green), laid out like the picture. -->
+					<svg
+						class="pointer-events-none absolute inset-0 h-full w-full"
+						viewBox={`0 0 ${videoSize.width} ${videoSize.height}`}
+						preserveAspectRatio="xMidYMid meet"
+						aria-hidden="true"
+					>
+						<rect
+							x={capturedCircuit.box.x}
+							y={capturedCircuit.box.y}
+							width={capturedCircuit.box.width}
+							height={capturedCircuit.box.height}
+							rx="6"
+							fill="none"
+							stroke="#22c55e"
+							stroke-width="3"
+							vector-effect="non-scaling-stroke"
+						/>
+					</svg>
+				{/if}
 			{/if}
 
 			{#if phase === 'requesting'}
