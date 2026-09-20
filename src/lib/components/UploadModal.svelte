@@ -5,7 +5,9 @@
 	import { loadDetectedCircuit } from '$lib/stores/circuit';
 	import { isCompact } from '$lib/stores/ui';
 	import { hasVideoInput } from '$lib/camera';
+	import type { OpenCvRecognitionInput } from '$lib/recognition';
 	import CameraCapture from './CameraCapture.svelte';
+	import DetectionReview from './DetectionReview.svelte';
 
 	interface Props {
 		open?: boolean;
@@ -19,6 +21,15 @@
 	let dragOver = $state(false);
 	let error = $state<string | null>(null);
 	let cameraOpen = $state(false);
+
+	/*
+	 * The on-device pass and the model call used to run as one step. They are
+	 * split so its proposals can be inspected before anything leaves the
+	 * device: a bad photo is cheaper to spot here than after a round trip.
+	 */
+	let prepared = $state<OpenCvRecognitionInput | null>(null);
+	let sourceDataUrl = $state<string | null>(null);
+	let sending = $state(false);
 
 	/*
 	 * Offer capture when a camera exists, not when the pointer is coarse. The
@@ -42,31 +53,57 @@
 		try {
 			const dataUrl = await readFileAsDataUrl(file);
 			const { prepareRecognitionInput } = await import('$lib/opencvRecognition');
-			const modelResult = await recognizeWithModel(await prepareRecognitionInput(dataUrl));
-			const predictionCount = modelResult.regions.length + modelResult.detections.length;
-			loadDetectedCircuit({
-				components: [],
-				wires: [],
-				detection: {
-					sourceImage: dataUrl,
-					status: `Model recognized ${predictionCount} candidate${predictionCount === 1 ? '' : 's'}; circuit normalization is pending`,
-					detectedAt: Date.now(),
-					recognition: modelResult
-				}
-			});
-			close();
+			sourceDataUrl = dataUrl;
+			prepared = await prepareRecognitionInput(dataUrl);
 		} catch (cause) {
 			// Keep the dialog open so the capture is not silently discarded.
-			error = cause instanceof Error ? cause.message : 'Could not recognize that sketch. Try again.';
+			error = cause instanceof Error ? cause.message : 'Could not read that sketch. Try again.';
 		} finally {
 			processing = false;
 		}
 	}
 
+	async function sendToModel() {
+		if (!prepared || !sourceDataUrl || sending) return;
+		error = null;
+		sending = true;
+		try {
+			const modelResult = await recognizeWithModel(prepared);
+			const predictionCount = modelResult.regions.length + modelResult.detections.length;
+			loadDetectedCircuit({
+				components: [],
+				wires: [],
+				detection: {
+					sourceImage: sourceDataUrl,
+					status: `Model recognized ${predictionCount} candidate${predictionCount === 1 ? '' : 's'}; circuit normalization is pending`,
+					detectedAt: Date.now(),
+					recognition: modelResult
+				}
+			});
+			discardPrepared();
+			close();
+		} catch (cause) {
+			/*
+			 * Stay on the review screen. The local pass is the expensive part to
+			 * redo, and the proposals are still worth looking at even when the
+			 * model is unreachable.
+			 */
+			error = cause instanceof Error ? cause.message : 'The model request failed.';
+		} finally {
+			sending = false;
+		}
+	}
+
+	function discardPrepared() {
+		prepared = null;
+		sourceDataUrl = null;
+	}
+
 	function close() {
-		if (processing) return;
+		if (processing || sending) return;
 		error = null;
 		cameraOpen = false;
+		discardPrepared();
 		if (fileInput) fileInput.value = '';
 		onClose();
 	}
@@ -130,8 +167,8 @@
 						aria-live="polite"
 					>
 						<Loader2 size={28} class="animate-spin text-accent-onDark" />
-						<p class="text-sm font-medium text-chrome-100">Detecting components…</p>
-						<p class="text-xs text-chrome-400">Parsing your sketch into a digital circuit</p>
+						<p class="text-sm font-medium text-chrome-100">Scanning on device…</p>
+						<p class="text-xs text-chrome-400">Finding candidate components with OpenCV</p>
 					</div>
 				{:else}
 					{#if cameraAvailable}
@@ -214,3 +251,12 @@
 {/if}
 
 <CameraCapture open={cameraOpen} onCapture={handleCaptured} onClose={() => (cameraOpen = false)} />
+
+<DetectionReview
+	open={prepared !== null}
+	input={prepared}
+	{sending}
+	{error}
+	onSend={sendToModel}
+	onBack={discardPrepared}
+/>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowLeft, Send, ScanSearch, Loader2 } from 'lucide-svelte';
+	import { ArrowLeft, Send, ScanSearch, Loader2, AlertTriangle } from 'lucide-svelte';
 	import type { OpenCvRecognitionInput } from '$lib/recognition';
 
 	interface Props {
@@ -7,11 +7,20 @@
 		input: OpenCvRecognitionInput | null;
 		/** True while the model request is in flight. */
 		sending?: boolean;
+		/** Surfaced here rather than behind this overlay, where it is invisible. */
+		error?: string | null;
 		onSend?: () => void;
 		onBack?: () => void;
 	}
 
-	let { open = false, input, sending = false, onSend = () => {}, onBack = () => {} }: Props = $props();
+	let {
+		open = false,
+		input,
+		sending = false,
+		error = null,
+		onSend = () => {},
+		onBack = () => {}
+	}: Props = $props();
 
 	const regions = $derived(input?.request.regions ?? []);
 	const width = $derived(input?.request.image_width ?? 0);
@@ -114,6 +123,16 @@
 				</div>
 			{/if}
 		</div>
+
+		{#if error}
+			<div
+				class="flex flex-shrink-0 items-start gap-2 border-t border-signal-danger/30 bg-signal-danger/10 px-4 py-3"
+				role="alert"
+			>
+				<AlertTriangle size={15} class="mt-0.5 flex-shrink-0 text-signal-danger" />
+				<p class="text-xs leading-snug text-chrome-100">{error}</p>
+			</div>
+		{/if}
 
 		<div class="flex flex-shrink-0 items-center justify-between gap-3 border-t border-chrome-600 px-4 py-3 pb-safe">
 			<div class="flex items-center gap-3 text-[11px] text-chrome-400">
