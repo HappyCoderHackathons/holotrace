@@ -4,7 +4,7 @@
 	import { recognizeWithModel } from '$lib/modelApi';
 	import { loadDetectedCircuit } from '$lib/stores/circuit';
 	import { isCompact } from '$lib/stores/ui';
-	import { hasVideoInput } from '$lib/camera';
+	import { canOfferCapture } from '$lib/camera';
 	import type { PreparedScan } from '$lib/opencvRecognition';
 	import CameraCapture from './CameraCapture.svelte';
 	import DetectionReview from './DetectionReview.svelte';
@@ -38,7 +38,7 @@
 	 */
 	let cameraAvailable = $state(false);
 	$effect(() => {
-		if (open) hasVideoInput().then((available) => (cameraAvailable = available));
+		if (open) canOfferCapture().then((available) => (cameraAvailable = available));
 	});
 
 	async function handleFile(file: File | undefined | null) {
