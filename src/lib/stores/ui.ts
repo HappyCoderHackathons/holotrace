@@ -52,3 +52,19 @@ export const isNarrow = mediaQuery('(max-width: 1100px)', false);
 export const isCoarsePointer = mediaQuery('(pointer: coarse)', false);
 
 export const prefersReducedMotion = mediaQuery('(prefers-reduced-motion: reduce)', false);
+
+/*
+ * Both side panels open leave under 300px of canvas on a tablet, which is less
+ * room than the circuit needs. Collapse them when crossing into the narrow
+ * band and restore them on the way out. This only fires on a breakpoint
+ * change, so a manual collapse inside one band is preserved.
+ */
+if (browser) {
+	let wasNarrow: boolean | null = null;
+	isNarrow.subscribe((narrow) => {
+		if (wasNarrow === narrow) return;
+		wasNarrow = narrow;
+		sketchPanelOpen.set(!narrow);
+		partsPanelOpen.set(!narrow);
+	});
+}
