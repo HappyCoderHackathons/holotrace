@@ -33,7 +33,8 @@ type OpenCvRuntime = typeof cv & {
 
 let openCvReady: Promise<void> | null = null;
 
-function waitForOpenCv(): Promise<void> {
+/** Resolves once OpenCV has finished loading (it starts on first use and takes a moment). */
+export function waitForOpenCv(): Promise<void> {
 	if (openCvReady) return openCvReady;
 
 	try {
