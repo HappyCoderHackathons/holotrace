@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { X, SwitchCamera, RotateCcw, Check, Loader2, CameraOff } from 'lucide-svelte';
 	import {
 		openStream,
@@ -105,14 +105,21 @@
 		await start(devices[deviceIndex].deviceId);
 	}
 
-	// Opening and closing drives the stream lifecycle, so the camera is never
-	// left running behind a closed sheet.
+	/*
+	 * Opening and closing drives the stream lifecycle, so the camera is never
+	 * left running behind a closed sheet.
+	 *
+	 * Only `open` may be a dependency. `start` reaches `releasePreview`, which
+	 * reads `previewUrl` and `pending`; without `untrack` those become
+	 * dependencies too, so pressing the shutter re-ran this effect and
+	 * restarted the camera instead of showing the captured frame.
+	 */
 	$effect(() => {
-		if (open) {
-			start();
-		} else {
-			teardown();
-		}
+		const isOpen = open;
+		untrack(() => {
+			if (isOpen) start();
+			else teardown();
+		});
 	});
 
 	/*
