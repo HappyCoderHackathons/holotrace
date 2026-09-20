@@ -73,15 +73,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build debug APK
+      - name: Build optimized APK
         env:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: bun run android:build -- --debug --apk
+        run: bun run android:build -- --apk
 
       - name: Verify and prepare public Android package
         run: |
           mkdir -p release-assets
-          apk="src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk"
+          apk="src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk"
           if [ ! -f "$apk" ]; then
             echo "Tauri did not produce the expected universal Android APK: $apk" >&2
             exit 1
@@ -103,7 +103,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: holotrace-android-${{ github.sha }}
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk
           if-no-files-found: error
           retention-days: 14
 
