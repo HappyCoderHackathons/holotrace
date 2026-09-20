@@ -154,6 +154,7 @@ symbols.ts      textbook symbol drawings and groups
 exemplars.ts    real hand-drawn examples
 circuit.ts      finding the whole circuit in a photo or frame, and cutting it out
 sharpen.ts      the unsharp mask applied before the image is sent
+hold.ts         when the circuit has been held still long enough to take the photo
 build.ts        components + ink -> diagram (wire tracing, orientation, parts and connections)
 sweep.ts        the parts of the sweep that look at the ink
 wires.ts        which components each drawn wire touches

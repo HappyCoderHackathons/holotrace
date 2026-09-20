@@ -26,6 +26,8 @@ The canvas is an editor, not just a viewer. In **Edit** mode:
 - **Delete** with the toolbar or the Delete key; Undo and Redo cover all of it.
 - **Export** saves `circuit.diagram.json`, and **Import** (or dropping a file on the canvas) replaces the circuit with one. The format is described in [`src/lib/diagram`](src/lib/diagram/README.md).
 
+**Taking a photo.** The camera opens at its largest supported size and looks for the circuit in every frame, the way the [dev page](opencv/README.md) does: the circuit found is outlined live (grey while it looks unfinished, yellow when its lines close a loop), and once it has been held still for a moment (a bar fills) the photo is taken by itself. The shutter button works at any time. The photo is then cropped to the circuit and scanned on the device.
+
 A photo goes through the same path: the model's answer is merged with the first pass, the wires are traced from the drawing, and the result opens in the editor as a best guess to check and fix.
 
 ## Desktop development
