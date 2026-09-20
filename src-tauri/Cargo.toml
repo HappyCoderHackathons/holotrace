@@ -25,3 +25,9 @@ tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
 base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
+
+# WebView2 denies camera access by default, so the desktop build has to grant
+# it explicitly. Versions are pinned to what Tauri 2.11 already resolves.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38.2"
+windows = { version = "0.61.3", features = ["Win32_Foundation"] }
