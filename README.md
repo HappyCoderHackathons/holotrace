@@ -58,7 +58,7 @@ bun run android:build -- --aab
 
 The Android application ID is `com.holotrace.mobile`, and Android 7.0 (API 24) is the minimum supported version. Camera access is requested only when the existing capture flow opens the device camera. Network access is required to send processed captures to the configured model service.
 
-The Android CI workflow publishes a universal, debug-signed APK for development testing. Native Rust debug symbols remain in the local build output but are removed from the packaged APK so it remains practical to download and install.
+The Android CI workflow publishes an optimized universal APK for development testing. Until a production keystore is configured, CI uses Android debug signing so the package remains installable without storing a signing key in the repository.
 
 The current recognition command expects server credentials in the native process environment. Those credentials must not be embedded in an APK. Android release builds therefore need a user-authenticated API or another server-issued credential flow before remote recognition can be enabled safely; the local editor and capture flow do not depend on that credential.
 
