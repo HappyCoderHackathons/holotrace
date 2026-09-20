@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Holotrace — Hand-drawn circuits, made interactive',
   description:
-    'Turn a hand-drawn circuit into an interactive model you can inspect, edit, and understand on Windows or Android.',
+    'Turn a hand-drawn circuit into an interactive model you can inspect, edit, and understand on Windows, macOS, Linux, or Android.',
   metadataBase: new URL('https://holotrace.yoyojesus.chatgpt.site'),
 };
 

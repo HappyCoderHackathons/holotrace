@@ -1,4 +1,5 @@
 import {
+  Apple,
   ArrowDown,
   ArrowRight,
   Camera,
@@ -10,6 +11,7 @@ import {
   ScanLine,
   Smartphone,
   Sparkles,
+  Terminal,
   Waypoints,
   Zap,
 } from 'lucide-react';
@@ -18,6 +20,8 @@ const githubUrl = 'https://github.com/holotrace-was-taken/holotrace';
 const releasesUrl = `${githubUrl}/releases`;
 const windowsDownloadUrl = `${githubUrl}/releases/download/desktop-latest/holotrace-windows-x64-setup.exe`;
 const androidDownloadUrl = `${githubUrl}/releases/download/android-latest/holotrace-android-debug.apk`;
+const macosDownloadUrl = `${githubUrl}/releases/download/macos-latest/holotrace-macos-universal.dmg`;
+const linuxDownloadUrl = `${githubUrl}/releases/download/linux-latest/holotrace-linux-x86_64.AppImage`;
 
 const steps = [
   { number: '01', label: 'CAPTURE', title: 'Start with the sketch', description: 'Take a photo on Android or bring in an existing image from your desktop.', icon: Camera },
@@ -138,7 +142,7 @@ export default function Home() {
         <div className="hero-copy">
           <span className="eyebrow"><i /> CIRCUIT SKETCHES, MADE INTERACTIVE</span>
           <h1>Draw it.<br />Capture it.<br /><em>Bring it to life.</em></h1>
-          <p>Turn a hand-drawn circuit into an interactive model you can inspect, edit, and understand on desktop or Android.</p>
+          <p>Turn a hand-drawn circuit into an interactive model you can inspect, edit, and understand on Windows, macOS, Linux, or Android.</p>
           <div className="hero-actions">
             <a className="primary-button" href="#download">Choose your version <ArrowDown size={17} /></a>
             <a className="text-link" href={githubUrl} target="_blank" rel="noreferrer">View the source <ArrowRight size={16} /></a>
@@ -224,13 +228,25 @@ export default function Home() {
       </section>
 
       <section className="download section" id="download">
-        <div className="download-heading"><span className="eyebrow">DOWNLOAD HOLOTRACE</span><h2>One workspace.<br />Two ways in.</h2><p>Try the latest development build for Windows or Android. New packages are published after app changes land on main.</p></div>
+        <div className="download-heading"><span className="eyebrow">DOWNLOAD HOLOTRACE</span><h2>One workspace.<br />Four ways in.</h2><p>Try the latest development build for Windows, macOS, Linux, or Android. New packages are published after app changes land on main.</p></div>
         <div className="download-grid">
           <article className="download-card">
             <div className="platform-icon"><Monitor size={29} /></div><span className="platform-label">DESKTOP</span><h3>Holotrace for Windows</h3>
             <p>A focused editor for reviewing captures, arranging components, and working across the full circuit canvas.</p>
             <ul><li><Check size={14} /> Mouse and touch input</li><li><Check size={14} /> Full circuit workspace</li><li><Check size={14} /> Windows installer</li></ul>
             <a className="download-button" href={windowsDownloadUrl}><Download size={16} /> Download for Windows</a>
+          </article>
+          <article className="download-card">
+            <div className="platform-icon"><Apple size={29} /></div><span className="platform-label">DESKTOP</span><h3>Holotrace for macOS</h3>
+            <p>A universal desktop build for both Apple Silicon and Intel Macs.</p>
+            <ul><li><Check size={14} /> Apple Silicon and Intel</li><li><Check size={14} /> Full circuit workspace</li><li><Check size={14} /> Universal DMG</li></ul>
+            <a className="download-button" href={macosDownloadUrl}><Download size={16} /> Download for macOS</a>
+          </article>
+          <article className="download-card">
+            <div className="platform-icon"><Terminal size={29} /></div><span className="platform-label">DESKTOP</span><h3>Holotrace for Linux</h3>
+            <p>A portable x86_64 package for running the circuit workspace across Linux distributions.</p>
+            <ul><li><Check size={14} /> Portable package</li><li><Check size={14} /> Full circuit workspace</li><li><Check size={14} /> x86_64 AppImage</li></ul>
+            <a className="download-button" href={linuxDownloadUrl}><Download size={16} /> Download for Linux</a>
           </article>
           <article className="download-card android-card">
             <div className="platform-icon"><Smartphone size={29} /></div><span className="platform-label">MOBILE</span><h3>Holotrace for Android</h3>
