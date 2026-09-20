@@ -76,7 +76,6 @@ export interface DetectionInfo {
 }
 
 export type ViewMode = 'circuit' | 'schematic' | 'components';
-export type EditTool = 'select' | 'wire' | 'pan';
 
 export interface SimulationState {
 	running: boolean;

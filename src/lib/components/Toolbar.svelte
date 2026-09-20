@@ -1,6 +1,5 @@
 <script lang="ts">
 	import {
-		Copy,
 		Trash2,
 		Undo2,
 		Redo2,
@@ -10,13 +9,11 @@
 		Square,
 		Pencil,
 		Eye,
-		Cable,
 		SlidersHorizontal,
 		Check
 	} from 'lucide-svelte';
 	import {
 		editMode,
-		editTool,
 		selectedIds,
 		selectedWireIds,
 		selectedNodeIds,

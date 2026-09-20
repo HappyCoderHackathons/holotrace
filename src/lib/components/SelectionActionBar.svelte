@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { RotateCw, FlipHorizontal2, Copy, Trash2, X } from 'lucide-svelte';
+	import { RotateCw, FlipHorizontal2, Trash2, X } from 'lucide-svelte';
 	import {
 		circuit,
 		selectedIds,
