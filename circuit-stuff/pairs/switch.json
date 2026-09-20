@@ -1,0 +1,118 @@
+{
+  "schema_version": "recognition-v0",
+  "client_preprocess_version": "opencv-v1",
+  "image_width": 516,
+  "image_height": 410,
+  "regions": [
+    {
+      "id": "region-0",
+      "box": {
+        "x0": 101,
+        "y0": 153,
+        "x1": 142,
+        "y1": 201
+      },
+      "local_label": "lamp",
+      "local_confidence": 0.41
+    },
+    {
+      "id": "region-1",
+      "box": {
+        "x0": 31,
+        "y0": 72,
+        "x1": 132,
+        "y1": 139
+      },
+      "local_label": "wire",
+      "local_confidence": 0.43
+    },
+    {
+      "id": "region-2",
+      "box": {
+        "x0": 243,
+        "y0": 256,
+        "x1": 286,
+        "y1": 302
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.92
+    },
+    {
+      "id": "region-3",
+      "box": {
+        "x0": 397,
+        "y0": 85,
+        "x1": 441,
+        "y1": 129
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.93
+    },
+    {
+      "id": "region-4",
+      "box": {
+        "x0": 459,
+        "y0": 84,
+        "x1": 505,
+        "y1": 130
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.68
+    },
+    {
+      "id": "region-5",
+      "box": {
+        "x0": 255,
+        "y0": 202,
+        "x1": 300,
+        "y1": 248
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.93
+    },
+    {
+      "id": "region-6",
+      "box": {
+        "x0": 254,
+        "y0": 158,
+        "x1": 298,
+        "y1": 202
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.85
+    },
+    {
+      "id": "region-7",
+      "box": {
+        "x0": 193,
+        "y0": 86,
+        "x1": 237,
+        "y1": 130
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.87
+    },
+    {
+      "id": "region-8",
+      "box": {
+        "x0": 458,
+        "y0": 36,
+        "x1": 501,
+        "y1": 81
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.66
+    },
+    {
+      "id": "region-9",
+      "box": {
+        "x0": 325,
+        "y0": 22,
+        "x1": 357,
+        "y1": 55
+      },
+      "local_label": "battery",
+      "local_confidence": 0.62
+    }
+  ]
+}

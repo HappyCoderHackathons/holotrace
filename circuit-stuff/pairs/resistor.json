@@ -1,0 +1,85 @@
+{
+  "schema_version": "recognition-v0",
+  "client_preprocess_version": "opencv-v1",
+  "image_width": 283,
+  "image_height": 320,
+  "regions": [
+    {
+      "id": "region-0",
+      "box": {
+        "x0": 104,
+        "y0": 204,
+        "x1": 135,
+        "y1": 259
+      },
+      "local_label": "transformer",
+      "local_confidence": 0.77
+    },
+    {
+      "id": "region-1",
+      "box": {
+        "x0": 218,
+        "y0": 184,
+        "x1": 247,
+        "y1": 214
+      },
+      "local_label": "led",
+      "local_confidence": 0.62
+    },
+    {
+      "id": "region-2",
+      "box": {
+        "x0": 22,
+        "y0": 118,
+        "x1": 55,
+        "y1": 167
+      },
+      "local_label": "transformer",
+      "local_confidence": 0.76
+    },
+    {
+      "id": "region-3",
+      "box": {
+        "x0": 105,
+        "y0": 88,
+        "x1": 140,
+        "y1": 139
+      },
+      "local_label": "resistor_ieee",
+      "local_confidence": 0.85
+    },
+    {
+      "id": "region-4",
+      "box": {
+        "x0": 31,
+        "y0": 51,
+        "x1": 61,
+        "y1": 98
+      },
+      "local_label": "resistor_ieee",
+      "local_confidence": 0.76
+    },
+    {
+      "id": "region-5",
+      "box": {
+        "x0": 71,
+        "y0": 28,
+        "x1": 101,
+        "y1": 45
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.67
+    },
+    {
+      "id": "region-6",
+      "box": {
+        "x0": 101,
+        "y0": 25,
+        "x1": 128,
+        "y1": 43
+      },
+      "local_label": "battery_cell",
+      "local_confidence": 0.67
+    }
+  ]
+}

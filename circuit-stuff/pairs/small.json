@@ -1,0 +1,63 @@
+{
+  "schema_version": "recognition-v0",
+  "client_preprocess_version": "opencv-v1",
+  "image_width": 338,
+  "image_height": 243,
+  "regions": [
+    {
+      "id": "region-0",
+      "box": {
+        "x0": 30,
+        "y0": 144,
+        "x1": 96,
+        "y1": 190
+      },
+      "local_label": "xor_gate",
+      "local_confidence": 0.77
+    },
+    {
+      "id": "region-1",
+      "box": {
+        "x0": 242,
+        "y0": 105,
+        "x1": 314,
+        "y1": 154
+      },
+      "local_label": "or_gate",
+      "local_confidence": 0.7
+    },
+    {
+      "id": "region-2",
+      "box": {
+        "x0": 52,
+        "y0": 86,
+        "x1": 99,
+        "y1": 132
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.61
+    },
+    {
+      "id": "region-3",
+      "box": {
+        "x0": 237,
+        "y0": 12,
+        "x1": 285,
+        "y1": 58
+      },
+      "local_label": "spst_switch",
+      "local_confidence": 0.72
+    },
+    {
+      "id": "region-4",
+      "box": {
+        "x0": 174,
+        "y0": 57,
+        "x1": 218,
+        "y1": 98
+      },
+      "local_label": "capacitor",
+      "local_confidence": 0.81
+    }
+  ]
+}
