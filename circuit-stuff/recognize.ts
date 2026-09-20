@@ -9,7 +9,7 @@
 // The key is never printed or stored.
 
 import { join, resolve } from "node:path";
-import { reconcile } from "../opencv/reconcile";
+import { reconcile } from "../src/lib/vision/reconcile";
 import { fail, parseArguments } from "./lib/arguments";
 import { unmappedNames } from "./lib/labels";
 import { loadPair } from "./lib/load-pair";

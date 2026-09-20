@@ -1,13 +1,13 @@
 // Entry point: opens the camera, runs the live stage until a circuit is captured, then hands the
 // captured still to the still stage. See pipeline/ for the two stages and config.ts for settings.
 
-import cv from "opencv-ts";
-import { DETECT_WIDTH, RESET_KEY } from "./config";
+import cv from "../src/lib/vision/cv";
+import { DETECT_WIDTH, RESET_KEY } from "../src/lib/vision/config";
 import { liveSteps } from "./pipeline/live";
 import { clearRecognition } from "./pipeline/recognition-panel";
 import { makePreview } from "./pipeline/preview";
 import { processStill } from "./pipeline/still";
-import { clearCapture, state } from "./state";
+import { clearCapture, state } from "../src/lib/vision/state";
 import { resetHold } from "./vision/capture";
 
 // Waits until the video element is delivering frames of the given width. After the camera is

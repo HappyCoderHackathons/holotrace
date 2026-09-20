@@ -1,10 +1,10 @@
 // The parts of the sweep (see ../candidates.ts) and of merging (../reconcile.ts) that look at the ink.
 
-import cv, { Mat } from "opencv-ts";
-import { isSweepId } from "../candidates";
-import { SWEEP_MIN_INK_FRACTION, SWEEP_TIGHT_PAD } from "../config";
-import { type Corners, type Rect, toCorners, toRect } from "../geometry/boxes";
-import { state } from "../state";
+import cv, { type Mat } from "opencv-ts";
+import { isSweepId } from "./candidates";
+import { SWEEP_MIN_INK_FRACTION, SWEEP_TIGHT_PAD } from "./config";
+import { type Corners, type Rect, toCorners, toRect } from "./boxes";
+import { state } from "./state";
 
 // The windows that hold enough ink to be worth sending: an empty patch of paper is not a component.
 export function windowsWithInk(ink: Mat, windows: Rect[]): Rect[] {

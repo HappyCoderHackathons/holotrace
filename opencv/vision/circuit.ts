@@ -1,8 +1,8 @@
 // Finding the whole circuit in a live camera frame.
 
-import cv, { Mat } from "opencv-ts";
-import { EDGE_MARGIN, MAX_CIRCUIT_FRACTION, MIN_CIRCUIT_FRACTION, MIN_HOLE_FRACTION } from "../config";
-import type { Rect } from "../geometry/boxes";
+import cv, { Mat } from "../../src/lib/vision/cv";
+import { EDGE_MARGIN, MAX_CIRCUIT_FRACTION, MIN_CIRCUIT_FRACTION, MIN_HOLE_FRACTION } from "../../src/lib/vision/config";
+import type { Rect } from "../../src/lib/vision/boxes";
 
 export type FoundCircuit = {
     box: Rect;

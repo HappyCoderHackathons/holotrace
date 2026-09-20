@@ -5,7 +5,7 @@
 // model's hands. The windows are cheap to send (about a thousand for a photo, a few seconds of CPU).
 
 import { SWEEP_SIZE_FRACTIONS, SWEEP_STRIDE } from "./config";
-import type { Rect } from "./geometry/boxes";
+import type { Rect } from "./boxes";
 
 // The ids of sweep windows in a request; the first pass's own boxes are "region-N".
 export const SWEEP_ID_PREFIX = "sweep-";

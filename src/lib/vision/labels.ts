@@ -1,7 +1,7 @@
 // How the names this stage gives components relate to the classifier's labels (the cghd-v0 label set in
 // classifier/src/holotrace_classifier/labels.py). Pure, no OpenCV.
 
-import { SYMBOLS } from "./vision/symbols";
+import { SYMBOLS } from "./symbols";
 
 // The classifier labels each of this stage's names can mean, first the most likely. A pattern ending in "*"
 // stands for any label that starts with what comes before it.
@@ -75,6 +75,15 @@ export function toClassifierLabel(name: string): string | null {
     if (!SYMBOLS.some((symbol) => symbol.label === name)) return null;
     const first = CLASSIFIER_LABELS[name]?.[0];
     return first !== undefined && !first.endsWith("*") ? first : null;
+}
+
+// The names of this stage's symbols that stand for a classifier label, first the ones it names most directly (used to
+// look up how a drawn component is turned; see orientation in classify.ts).
+export function symbolsFor(classifierLabel: string): string[] {
+    const names = SYMBOLS.map((symbol) => symbol.label).filter((label, n, all) => all.indexOf(label) === n);
+    const direct = names.filter((name) => CLASSIFIER_LABELS[name]?.[0] === classifierLabel);
+    const others = names.filter((name) => !direct.includes(name) && (CLASSIFIER_LABELS[name] ?? []).some((pattern) => fitsPattern(pattern, classifierLabel)));
+    return [...direct, ...others];
 }
 
 // The classifier's labels for things that are not components: it says these for boxes that hold no symbol.

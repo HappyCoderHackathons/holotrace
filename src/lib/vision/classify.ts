@@ -6,8 +6,8 @@
 // confidence between 0 and 1; whether that is high enough to trust is left to the caller.
 
 import cv, { type Mat } from "opencv-ts";
-import { LABEL_MIN_CONFIDENCE, LABEL_MIN_GROUP_CONFIDENCE, MATCH_BLUR_SIGMA, MATCH_SIZE, SIZE_MISMATCH } from "../config";
-import type { Rect } from "../geometry/boxes";
+import { LABEL_MIN_CONFIDENCE, LABEL_MIN_GROUP_CONFIDENCE, MATCH_BLUR_SIGMA, MATCH_SIZE, SIZE_MISMATCH } from "./config";
+import type { Rect } from "./boxes";
 import { type Exemplar, EXEMPLARS } from "./exemplars";
 import { type Group, isLead, SYMBOLS, type SymbolDrawing } from "./symbols";
 
@@ -22,8 +22,19 @@ export function nameOf(match: Match): string | null {
     return match.confidence >= LABEL_MIN_GROUP_CONFIDENCE ? match.group : null;
 }
 
-// One reference picture: a symbol in one orientation.
-type Reference = { label: string; group: Group; minConfidence: number; aspect: number; strokes?: [number, number]; pixels: Float32Array };
+// One reference picture: a symbol in one orientation (turned `quarter` times a quarter clockwise, after being
+// mirrored if `flipped`), and whether it is a textbook drawing (which has a known upright) or a real example.
+type Reference = {
+    label: string;
+    group: Group;
+    minConfidence: number;
+    aspect: number;
+    strokes?: [number, number];
+    pixels: Float32Array;
+    symbol: boolean;
+    quarter: number;
+    flipped: boolean;
+};
 
 // A 1-channel picture of line art (white on black), any size, as a blurred MATCH_SIZE square.
 function describe(art: Mat): Float32Array {
@@ -71,12 +82,12 @@ function drawSymbol(parts: SymbolDrawing["parts"]): { art: Mat; aspect: number }
 }
 
 // Adds a picture to the references in its eight orientations: turned by quarters, and mirrored.
-function addOrientations(list: Reference[], meta: Omit<Reference, "aspect" | "pixels">, aspect: number, pixels: Float32Array) {
+function addOrientations(list: Reference[], meta: Omit<Reference, "aspect" | "pixels" | "quarter" | "flipped">, aspect: number, pixels: Float32Array) {
     for (const flipped of [false, true]) {
         let current = flipped ? mirror(pixels) : pixels;
         for (let quarter = 0; quarter < 4; quarter++) {
             // Turned a quarter, a drawing's width and height swap.
-            list.push({ ...meta, aspect: quarter % 2 === 0 ? aspect : 1 / aspect, pixels: current });
+            list.push({ ...meta, aspect: quarter % 2 === 0 ? aspect : 1 / aspect, pixels: current, quarter, flipped });
             current = turn(current);
         }
     }
@@ -103,11 +114,11 @@ function buildReferences(): Reference[] {
             const { art, aspect } = drawSymbol(parts);
             const pixels = describe(art);
             art.delete();
-            addOrientations(list, { label: symbol.label, group: symbol.group, strokes: symbol.strokes, minConfidence: symbol.minConfidence ?? 0 }, aspect, pixels);
+            addOrientations(list, { label: symbol.label, group: symbol.group, strokes: symbol.strokes, minConfidence: symbol.minConfidence ?? 0, symbol: true }, aspect, pixels);
         }
     }
     for (const example of EXEMPLARS) {
-        addOrientations(list, { label: example.label, group: example.group, minConfidence: 0 }, example.aspect, describeExemplar(example));
+        addOrientations(list, { label: example.label, group: example.group, minConfidence: 0, symbol: false }, example.aspect, describeExemplar(example));
     }
     return list;
 }
@@ -154,6 +165,27 @@ export function classify(ink: Mat, box: Rect, thickness: number): Match {
         const sized = reference.strokes === undefined || (strokes >= reference.strokes[0] && strokes <= reference.strokes[1]) ? 1 : SIZE_MISMATCH;
         const confidence = Math.max(0, correlation(pixels, reference.pixels)) * shape * sized;
         if (confidence >= reference.minConfidence && confidence > best.confidence) best = { label: reference.label, group: reference.group, confidence };
+    }
+    return best;
+}
+
+// How a symbol is turned in a component's box: quarter turns clockwise and whether it is mirrored, in the order
+// the app applies them (mirror, then turn). It is found by matching the ink against the textbook drawings of the
+// given symbol names; real examples are not used, since their "upright" is whichever way they were drawn. A low
+// `score` means the ink does not look like any of them, so the caller should guess (from the box's proportions,
+// say). Where several turns look the same (a resistor turned half a turn), the plainest one wins.
+export type Orientation = { rotation: 0 | 90 | 180 | 270; mirrored: boolean; score: number };
+
+export function orientation(ink: Mat, box: Rect, symbols: string[]): Orientation {
+    references ??= buildReferences();
+    const region = ink.roi(new cv.Rect(box.x, box.y, box.width, box.height));
+    const pixels = describe(region);
+    region.delete();
+    let best: Orientation = { rotation: 0, mirrored: false, score: 0 };
+    for (const reference of references) {
+        if (!reference.symbol || !symbols.includes(reference.label)) continue;
+        const score = correlation(pixels, reference.pixels);
+        if (score > best.score + 0.005) best = { rotation: (reference.quarter * 90) as Orientation["rotation"], mirrored: reference.flipped, score };
     }
     return best;
 }
