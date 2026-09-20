@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Download } from 'lucide-svelte';
+	import { Download, PackageOpen } from 'lucide-svelte';
 	import { circuit } from '$lib/stores/circuit';
 	import { COMPONENT_DISPLAY_NAME } from '$lib/componentLibrary';
 
@@ -33,43 +33,66 @@
 	}
 </script>
 
-<div class="flex h-full flex-col overflow-y-auto bg-surface-50 p-8">
+<div class="thin-scroll h-full overflow-y-auto bg-chrome-900 px-4 py-6 sm:px-8 sm:py-8">
 	<div class="mx-auto w-full max-w-3xl">
-		<div class="flex items-center justify-between border-b border-surface-200 pb-4">
-			<h1 class="text-lg font-semibold text-ink-300">Component List</h1>
+		<div class="flex items-center justify-between gap-3 border-b border-chrome-600 pb-4">
+			<h1 class="text-base font-semibold text-chrome-100 sm:text-lg">Component list</h1>
 			<button
-				class="flex items-center gap-2 rounded-lg border border-surface-200 bg-white px-3.5 py-2 text-sm font-medium text-ink-700 hover:bg-surface-100"
+				class="flex min-h-touch items-center gap-2 rounded-lg border border-chrome-600 px-3.5 text-sm font-medium text-chrome-200 transition-colors hover:bg-chrome-700 disabled:cursor-not-allowed disabled:text-chrome-500"
+				disabled={rows.length === 0}
 				onclick={downloadCsv}
 			>
 				<Download size={15} />
-				Download CSV
+				CSV
 			</button>
 		</div>
 
-		<div class="mt-6 overflow-hidden rounded-lg border border-surface-200 bg-white shadow-panel">
-			<table class="w-full text-sm">
-				<thead>
-					<tr class="bg-surface-200/70 text-left text-ink-700">
-						<th class="px-6 py-3 font-semibold">Name</th>
-						<th class="px-6 py-3 font-semibold">Quantity</th>
-						<th class="px-6 py-3 font-semibold">Component</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each rows as row (row.name)}
-						<tr class="border-t border-surface-200">
-							<td class="px-6 py-3 text-ink-900">{row.name}</td>
-							<td class="px-6 py-3 text-ink-900">{row.quantity}</td>
-							<td class="px-6 py-3 text-ink-900">{row.type}</td>
+		{#if rows.length === 0}
+			<div class="mt-8 flex flex-col items-center gap-3 rounded-xl border border-dashed border-chrome-600 px-6 py-14 text-center">
+				<PackageOpen size={26} class="text-chrome-500" />
+				<p class="text-sm font-medium text-chrome-200">No components detected yet</p>
+				<p class="max-w-xs text-xs leading-relaxed text-chrome-400">
+					Upload a sketch or add parts on the circuit canvas, and they will be counted here.
+				</p>
+			</div>
+		{:else}
+			<!-- A three-column table is unreadable at 390px, so it becomes cards. -->
+			<ul class="mt-6 space-y-2 sm:hidden">
+				{#each rows as row (row.name)}
+					<li class="rounded-xl border border-chrome-600 bg-chrome-800 p-4">
+						<div class="flex items-start justify-between gap-3">
+							<div>
+								<p class="font-mono text-sm font-semibold text-accent-onDark">{row.name}</p>
+								<p class="mt-0.5 text-xs text-chrome-300">{row.type}</p>
+							</div>
+							<span class="rounded-full bg-chrome-700 px-2.5 py-1 font-mono text-xs text-chrome-100">
+								×{row.quantity}
+							</span>
+						</div>
+					</li>
+				{/each}
+			</ul>
+
+			<div class="mt-6 hidden overflow-hidden rounded-xl border border-chrome-600 sm:block">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="bg-chrome-800 text-left text-chrome-300">
+							<th class="px-6 py-3 font-semibold">Name</th>
+							<th class="px-6 py-3 font-semibold">Quantity</th>
+							<th class="px-6 py-3 font-semibold">Component</th>
 						</tr>
-					{/each}
-					{#if rows.length === 0}
-						<tr>
-							<td colspan="3" class="px-6 py-8 text-center text-ink-300">No components detected yet.</td>
-						</tr>
-					{/if}
-				</tbody>
-			</table>
-		</div>
+					</thead>
+					<tbody>
+						{#each rows as row (row.name)}
+							<tr class="border-t border-chrome-600">
+								<td class="px-6 py-3 font-mono text-accent-onDark">{row.name}</td>
+								<td class="px-6 py-3 font-mono text-chrome-200">{row.quantity}</td>
+								<td class="px-6 py-3 text-chrome-200">{row.type}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
 	</div>
 </div>
