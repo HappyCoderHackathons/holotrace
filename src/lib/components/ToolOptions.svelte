@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { Cable, MousePointer2, Check } from 'lucide-svelte';
+	import FileActions from './FileActions.svelte';
+	import Properties from './Properties.svelte';
 	import {
 		editMode,
 		editTool,
@@ -130,4 +132,12 @@
 			{/each}
 		</div>
 	</div>
+
+	{#if touch}
+		<Properties touch />
+		<div class="space-y-1.5">
+			<span class="panel-label">Circuit file</span>
+			<FileActions stacked />
+		</div>
+	{/if}
 </div>

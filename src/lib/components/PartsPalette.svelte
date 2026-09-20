@@ -15,7 +15,7 @@
 
 	let { compact = false, onPlaced = () => {} }: Props = $props();
 
-	const categories: Category[] = ['All', 'Basic', 'Power', 'Input'];
+	const categories: Category[] = ['All', 'Basic', 'Power', 'Input', 'Logic', 'Other'];
 
 	let query = $state('');
 	let category = $state<Category>('All');

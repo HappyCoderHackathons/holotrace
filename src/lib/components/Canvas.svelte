@@ -5,6 +5,11 @@
 		circuit,
 		selectedIds,
 		selectedWireIds,
+		selectedNodeIds,
+		pendingWire,
+		moveNode,
+		splitWire,
+		setWireWaypoints,
 		canvasZoom,
 		canvasPan,
 		moveComponent,
@@ -19,10 +24,12 @@
 	} from '$lib/stores/circuit';
 	import { isCoarsePointer, isCompact } from '$lib/stores/ui';
 	import { simulation, toggleSwitch, switchStates } from '$lib/stores/simulation';
-	import { pinWorldPos } from '$lib/geometry';
+	import { endPoint } from '$lib/geometry';
+	import { collapseRoute, nearestOnPath, nearestSegment, pathData, routeWire, snap } from '$lib/routing';
+	import { importDiagramFile } from '$lib/diagramFiles';
 	import CanvasComponent from './CanvasComponent.svelte';
 	import WireLayer from './WireLayer.svelte';
-	import type { ComponentType } from '$lib/types';
+	import type { ComponentType, WireEnd } from '$lib/types';
 	import { COMPONENT_TYPES } from '$lib/componentLibrary';
 
 	interface Props {
@@ -43,7 +50,7 @@
 	/** Every pointer currently down on the canvas, keyed by pointerId. */
 	const pointers = new Map<number, { x: number; y: number }>();
 
-	type Gesture = 'none' | 'pan' | 'component' | 'waypoint' | 'pinch';
+	type Gesture = 'none' | 'pan' | 'component' | 'waypoint' | 'node' | 'wire' | 'pinch';
 	let gesture: Gesture = 'none';
 	let movedPastThreshold = false;
 
@@ -53,6 +60,15 @@
 	let draggingId: string | null = null;
 	let dragOffset = { x: 0, y: 0 };
 	let draggingWaypoint: { wireId: string; index: number } | null = null;
+	let draggingNodeId: string | null = null;
+	/** A wire pressed in the middle: once it moves, the segment under the pointer follows it. */
+	let wireDrag: {
+		wireId: string;
+		press: { x: number; y: number };
+		/** Set on the first move: the corners the wire is routed through, and the segment being moved. */
+		corners?: { x: number; y: number }[];
+		segment?: { first: number; horizontal: boolean };
+	} | null = null;
 
 	let pinchStart: {
 		distance: number;
@@ -62,7 +78,7 @@
 	} | null = null;
 
 	/** Pin waiting for its partner. Drives both drag-to-wire and tap-tap wiring. */
-	let wireStart = $state<{ componentId: string; pinId: string } | null>(null);
+	const wireStart = $derived($pendingWire);
 	let wireCursor = $state<{ x: number; y: number } | null>(null);
 
 	function localPoint(clientX: number, clientY: number) {
@@ -103,6 +119,8 @@
 		gesture = 'pinch';
 		draggingId = null;
 		draggingWaypoint = null;
+		draggingNodeId = null;
+		wireDrag = null;
 		pinchStart = {
 			distance,
 			zoom: $canvasZoom,
@@ -174,12 +192,37 @@
 			moveComponent(draggingId, world.x - dragOffset.x, world.y - dragOffset.y);
 		} else if (gesture === 'waypoint' && draggingWaypoint && editable) {
 			const world = screenToWorld(e.clientX, e.clientY);
-			updateWireWaypoint(draggingWaypoint.wireId, draggingWaypoint.index, world.x, world.y);
+			const at = snap(world);
+			updateWireWaypoint(draggingWaypoint.wireId, draggingWaypoint.index, at.x, at.y);
+		} else if (gesture === 'node' && draggingNodeId && editable) {
+			const at = snap(screenToWorld(e.clientX, e.clientY));
+			moveNode(draggingNodeId, at.x, at.y);
+		} else if (gesture === 'wire' && wireDrag && editable) {
+			dragWireSegment(screenToWorld(e.clientX, e.clientY));
+		}
+	}
+
+	/** After a wire, corner or junction has been moved: wires that now double back on themselves are straightened. */
+	function collapseDoubledBackWires() {
+		for (const wire of $circuit.wires) {
+			if (!wire.waypoints?.length) continue;
+			const from = endPoint($circuit.components, $circuit.nodes, wire.from);
+			const to = endPoint($circuit.components, $circuit.nodes, wire.to);
+			if (!from || !to) continue;
+			// The corners are rewritten to be exactly the drawn route: none left over from a fold, none on a straight run.
+			const collapsed = collapseRoute(routeWire(from, to, wire.waypoints));
+			const auto = routeWire(from, to);
+			const same = auto.length === collapsed.length && auto.every((p, k) => p.x === collapsed[k].x && p.y === collapsed[k].y);
+			const corners = same ? [] : collapsed.slice(1, -1);
+			const old = wire.waypoints;
+			if (corners.length === old.length && corners.every((p, k) => p.x === old[k].x && p.y === old[k].y)) continue;
+			setWireWaypoints(wire.id, corners);
 		}
 	}
 
 	function handlePointerUp(e: PointerEvent) {
 		pointers.delete(e.pointerId);
+		if (gesture === 'wire' || gesture === 'waypoint' || gesture === 'node') collapseDoubledBackWires();
 
 		if (gesture === 'pinch') {
 			// Keep the surviving finger from snapping the canvas to a new pan origin.
@@ -207,6 +250,8 @@
 		movedPastThreshold = false;
 		draggingId = null;
 		draggingWaypoint = null;
+		draggingNodeId = null;
+		wireDrag = null;
 
 		// With a mouse, releasing anywhere but on a pin abandons the wire. With a
 		// finger the pending pin has to survive the release, because the second
@@ -215,7 +260,7 @@
 	}
 
 	function cancelWire() {
-		wireStart = null;
+		pendingWire.set(null);
 		wireCursor = null;
 	}
 
@@ -232,6 +277,7 @@
 		if (gesture === 'pinch') return;
 		selectedIds.set(new Set([id]));
 		selectedWireIds.set(new Set());
+		selectedNodeIds.set(new Set());
 		if (!editable) return;
 
 		const comp = $circuit.components.find((c) => c.id === id);
@@ -245,31 +291,10 @@
 		pressOrigin = { x: e.clientX, y: e.clientY };
 	}
 
-	function connect(componentId: string, pinId: string) {
+	function connect(end: WireEnd) {
 		if (!wireStart) return;
-		const isSamePin = wireStart.componentId === componentId && wireStart.pinId === pinId;
-		const alreadyWired = $circuit.wires.some(
-			(w) =>
-				(w.fromComponentId === wireStart!.componentId &&
-					w.fromPinId === wireStart!.pinId &&
-					w.toComponentId === componentId &&
-					w.toPinId === pinId) ||
-				(w.toComponentId === wireStart!.componentId &&
-					w.toPinId === wireStart!.pinId &&
-					w.fromComponentId === componentId &&
-					w.fromPinId === pinId)
-		);
-
-		if (!isSamePin && !alreadyWired) {
-			addWire({
-				fromComponentId: wireStart.componentId,
-				fromPinId: wireStart.pinId,
-				toComponentId: componentId,
-				toPinId: pinId,
-				color: $wireColor,
-				style: $wireStyle
-			});
-		}
+		// addWire ignores a wire from an end to itself and one that is already there.
+		addWire({ from: wireStart, to: end, color: $wireColor, style: $wireStyle });
 		cancelWire();
 	}
 
@@ -279,21 +304,141 @@
 
 		if ($isCoarsePointer && wireStart) {
 			// Second tap of a tap-tap connection.
-			connect(componentId, pinId);
+			connect({ componentId, pinId });
 			return;
 		}
 
-		wireStart = { componentId, pinId };
+		pendingWire.set({ componentId, pinId });
 		wireCursor = $isCoarsePointer ? null : screenToWorld(e.clientX, e.clientY);
 		selectedIds.set(new Set([componentId]));
 		selectedWireIds.set(new Set());
+		selectedNodeIds.set(new Set());
 	}
 
 	function handlePinPointerUp(e: PointerEvent, componentId: string, pinId: string) {
 		e.stopPropagation();
 		// Coarse pointers complete on the next tap instead, handled above.
 		if (!wireStart || !editable || $isCoarsePointer) return;
-		connect(componentId, pinId);
+		connect({ componentId, pinId });
+	}
+
+	function handleNodePointerDown(e: PointerEvent, nodeId: string) {
+		e.stopPropagation();
+		if (gesture === 'pinch') return;
+		if (editable && wireStart && $isCoarsePointer) {
+			connect({ nodeId });
+			return;
+		}
+		selectedNodeIds.set(new Set([nodeId]));
+		selectedIds.set(new Set());
+		selectedWireIds.set(new Set());
+		if (!editable) return;
+		if (e.altKey || e.shiftKey) {
+			// Modifier-drag from a junction draws a new wire out of it.
+			pendingWire.set({ nodeId });
+			wireCursor = screenToWorld(e.clientX, e.clientY);
+			return;
+		}
+		(e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+		draggingNodeId = nodeId;
+		gesture = 'node';
+		movedPastThreshold = false;
+		pressOrigin = { x: e.clientX, y: e.clientY };
+	}
+
+	function handleNodePointerUp(e: PointerEvent, nodeId: string) {
+		e.stopPropagation();
+		if (!wireStart || !editable || $isCoarsePointer) return;
+		connect({ nodeId });
+	}
+
+	/** Puts a junction on a wire, at the point of the wire nearest the pointer. Returns its id. */
+	function junctionOn(e: PointerEvent, wireId: string): string | null {
+		const wire = $circuit.wires.find((w) => w.id === wireId);
+		if (!wire) return null;
+		const from = endPoint($circuit.components, $circuit.nodes, wire.from);
+		const to = endPoint($circuit.components, $circuit.nodes, wire.to);
+		if (!from || !to) return null;
+		const route = routeWire(from, to, wire.waypoints ?? []);
+		const at = nearestOnPath(route, screenToWorld(e.clientX, e.clientY));
+		return splitWire(wireId, at.x, at.y);
+	}
+
+	/**
+	 * Moves the part of a wire under the pointer. A segment between two corners slides sideways; one that
+	 * touches a pin cannot (the pin stays put), so a new corner is put there and dragged instead.
+	 */
+	function dragWireSegment(world: { x: number; y: number }) {
+		if (!wireDrag) return;
+		const wire = $circuit.wires.find((w) => w.id === wireDrag!.wireId);
+		if (!wire) return;
+		if (!wireDrag.corners) {
+			const from = endPoint($circuit.components, $circuit.nodes, wire.from);
+			const to = endPoint($circuit.components, $circuit.nodes, wire.to);
+			if (!from || !to) return;
+			const route = routeWire(from, to, wire.waypoints ?? []);
+			const segment = nearestSegment(route, wireDrag.press);
+			// Every corner between the pins, so setting them again reproduces the route.
+			const corners = route.slice(1, -1);
+			if (segment === 0 || segment === route.length - 2) {
+				const at = segment === 0 ? 0 : corners.length;
+				corners.splice(at, 0, snap(world));
+				setWireWaypoints(wire.id, corners);
+				draggingWaypoint = { wireId: wire.id, index: at };
+				gesture = 'waypoint';
+				wireDrag = null;
+				return;
+			}
+			const a = route[segment];
+			const b = route[segment + 1];
+			wireDrag.corners = corners;
+			wireDrag.segment = { first: segment - 1, horizontal: a.y === b.y };
+		}
+		const { corners, segment } = wireDrag;
+		if (!corners || !segment) return;
+		const moved = corners.map((c) => ({ ...c }));
+		const at = snap(world);
+		for (const k of [segment.first, segment.first + 1]) {
+			if (segment.horizontal) moved[k].y = at.y;
+			else moved[k].x = at.x;
+		}
+		setWireWaypoints(wire.id, moved);
+	}
+
+	function handleWirePointerDown(e: PointerEvent, wireId: string) {
+		if (!editable || gesture === 'pinch') return;
+		if (!wireStart && !e.altKey && !e.shiftKey && e.button === 0) {
+			// A plain press on a wire: it is picked up once the pointer moves.
+			e.stopPropagation();
+			wireDrag = { wireId, press: screenToWorld(e.clientX, e.clientY) };
+			gesture = 'wire';
+			movedPastThreshold = false;
+			pressOrigin = { x: e.clientX, y: e.clientY };
+			selectedWireIds.set(new Set([wireId]));
+			selectedIds.set(new Set());
+			selectedNodeIds.set(new Set());
+			return;
+		}
+		if (wireStart && $isCoarsePointer) {
+			e.stopPropagation();
+			const nodeId = junctionOn(e, wireId);
+			if (nodeId) connect({ nodeId });
+		} else if (e.altKey || e.shiftKey) {
+			// Modifier-press on a wire starts a new wire from a junction put on it.
+			e.stopPropagation();
+			const nodeId = junctionOn(e, wireId);
+			if (nodeId) {
+				pendingWire.set({ nodeId });
+				wireCursor = screenToWorld(e.clientX, e.clientY);
+			}
+		}
+	}
+
+	function handleWirePointerUp(e: PointerEvent, wireId: string) {
+		if (!wireStart || !editable || $isCoarsePointer) return;
+		e.stopPropagation();
+		const nodeId = junctionOn(e, wireId);
+		if (nodeId) connect({ nodeId });
 	}
 
 	function handleWaypointPointerDown(e: PointerEvent, wireId: string, index: number) {
@@ -308,8 +453,8 @@
 	function handleWireAddWaypoint(e: MouseEvent, wireId: string) {
 		e.stopPropagation();
 		if (!editable) return;
-		const world = screenToWorld(e.clientX, e.clientY);
-		addWireWaypoint(wireId, world.x, world.y);
+		const at = snap(screenToWorld(e.clientX, e.clientY));
+		addWireWaypoint(wireId, at.x, at.y);
 	}
 
 	function handleComponentClick(id: string) {
@@ -324,10 +469,16 @@
 	function handleSelectWire(id: string) {
 		selectedWireIds.set(new Set([id]));
 		selectedIds.set(new Set());
+		selectedNodeIds.set(new Set());
 	}
 
 	function handleDrop(e: DragEvent) {
 		e.preventDefault();
+		const file = e.dataTransfer?.files?.[0];
+		if (file) {
+			void importDiagramFile(file).then(() => requestAnimationFrame(fitToContent));
+			return;
+		}
 		const type = e.dataTransfer?.getData('component-type');
 		if (!type || !COMPONENT_TYPES.includes(type as ComponentType)) return;
 		const world = screenToWorld(e.clientX, e.clientY);
@@ -346,6 +497,7 @@
 
 		const points = [
 			...$circuit.components.map((c) => ({ x: c.x, y: c.y })),
+			...$circuit.nodes.map((n) => ({ x: n.x, y: n.y })),
 			...$circuit.wires.flatMap((w) => w.waypoints ?? [])
 		];
 		if (points.length === 0) {
@@ -389,8 +541,8 @@
 	}
 
 	const transform = $derived(`translate(${$canvasPan.x} ${$canvasPan.y}) scale(${$canvasZoom})`);
-	const pendingWireStartPos = $derived(
-		wireStart ? pinWorldPos($circuit.components, wireStart.componentId, wireStart.pinId) : null
+	const pendingStart = $derived(
+		wireStart ? endPoint($circuit.components, $circuit.nodes, wireStart) : null
 	);
 	const isEmpty = $derived($circuit.components.length === 0);
 </script>
@@ -432,8 +584,10 @@
 		<g {transform}>
 			<WireLayer
 				wires={$circuit.wires}
+				nodes={$circuit.nodes}
 				components={$circuit.components}
 				selectedWireIds={$selectedWireIds}
+				selectedNodeIds={$selectedNodeIds}
 				activeCurrent={$simulation.current}
 				{editable}
 				{schematic}
@@ -442,6 +596,10 @@
 				onWaypointPointerDown={handleWaypointPointerDown}
 				onWaypointRemove={removeWireWaypoint}
 				onWireAddWaypoint={handleWireAddWaypoint}
+				onWirePointerDown={handleWirePointerDown}
+				onWirePointerUp={handleWirePointerUp}
+				onNodePointerDown={handleNodePointerDown}
+				onNodePointerUp={handleNodePointerUp}
 			/>
 			{#each $circuit.components as component (component.id)}
 				<CanvasComponent
@@ -452,19 +610,19 @@
 					{editable}
 					{schematic}
 					coarse={$isCoarsePointer}
-					armedPinId={wireStart?.componentId === component.id ? wireStart.pinId : null}
+					armedPinId={wireStart && 'componentId' in wireStart && wireStart.componentId === component.id
+						? wireStart.pinId
+						: null}
 					onPinPointerDown={(e, pinId) => handlePinPointerDown(e, component.id, pinId)}
 					onPinPointerUp={(e, pinId) => handlePinPointerUp(e, component.id, pinId)}
 					onpointerdown={(e) => handleComponentPointerDown(e, component.id)}
 					onclick={() => handleComponentClick(component.id)}
 				/>
 			{/each}
-			{#if wireStart && wireCursor && pendingWireStartPos}
-				<line
-					x1={pendingWireStartPos.x}
-					y1={pendingWireStartPos.y}
-					x2={wireCursor.x}
-					y2={wireCursor.y}
+			{#if pendingStart && wireCursor}
+				<path
+					d={pathData(routeWire(pendingStart, { at: wireCursor, facing: null }))}
+					fill="none"
 					stroke="#2f6bff"
 					stroke-width="2"
 					stroke-dasharray="5 4"

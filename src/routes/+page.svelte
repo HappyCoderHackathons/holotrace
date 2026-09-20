@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import AppShell from '$lib/components/AppShell.svelte';
 	import UploadModal from '$lib/components/UploadModal.svelte';
+	import FileNotice from '$lib/components/FileNotice.svelte';
 	import { deleteSelected } from '$lib/stores/circuit';
 	import { activeSheet } from '$lib/stores/ui';
 
@@ -31,6 +32,8 @@
 </svelte:head>
 
 <AppShell onUploadClick={() => (uploadOpen = true)} />
+
+<FileNotice />
 
 <UploadModal
 	open={uploadOpen}

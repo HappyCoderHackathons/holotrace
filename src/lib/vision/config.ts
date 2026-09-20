@@ -45,6 +45,13 @@ export const MAX_CIRCUIT_FRACTION = 0.8;
 export const EDGE_MARGIN = 4;
 // How large a gap in the drawing still counts as one circuit (detection frame).
 export const BLOB_KERNEL = 15;
+// A still photo tries these gaps in turn, tightest first, and takes the first that gives a closed circuit: a tight
+// gap keeps two drawings that sit close together apart, while a single drawing's wires still join up. If none does,
+// the last (widest) result is used, as for the live camera.
+export const BLOB_KERNELS_STILL = [7, 11, BLOB_KERNEL];
+// Among several circuits in view, one nearer the middle of the frame counts for more: its area is weighted down by
+// this fraction at the corner of the frame (0 is no preference for the middle).
+export const CENTRE_PREFERENCE = 0.6;
 // A circuit must enclose a hole (a closed loop) at least this fraction of its box, so a
 // half-drawn or half-visible circuit is not captured.
 export const MIN_HOLE_FRACTION = 0.1;

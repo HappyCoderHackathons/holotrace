@@ -4,11 +4,15 @@ import type {
 	CircuitState,
 	ComponentType,
 	Wire,
+	WireEnd,
 	ViewMode,
 	EditTool
 } from '../types';
 import { REF_PREFIX, defaultPins, PALETTE } from '../componentLibrary';
 import { createId } from '../id';
+import { circuitToDiagram, diagramToCircuit } from '../diagram/circuit';
+import { parseDiagram, type Diagram } from '../diagram/diagram';
+import { sameEnd } from '../geometry';
 
 function sampleCircuit(): CircuitState {
 	const battery: CircuitComponent = {
@@ -52,44 +56,31 @@ function sampleCircuit(): CircuitState {
 	const wires: Wire[] = [
 		{
 			id: createId(),
-			fromComponentId: battery.id,
-			fromPinId: 'pos',
-			toComponentId: led.id,
-			toPinId: 'k',
-			color: '#22c55e',
-			style: 'solid',
-			waypoints: [
-				{ x: 300, y: 360 },
-				{ x: 300, y: 120 }
-			]
-		},
-		{
-			id: createId(),
-			fromComponentId: led.id,
-			fromPinId: 'a',
-			toComponentId: resistor.id,
-			toPinId: '2',
+			from: { componentId: battery.id, pinId: 'pos' },
+			to: { componentId: led.id, pinId: 'k' },
 			color: '#22c55e',
 			style: 'solid'
 		},
 		{
 			id: createId(),
-			fromComponentId: resistor.id,
-			fromPinId: '1',
-			toComponentId: battery.id,
-			toPinId: 'neg',
+			from: { componentId: led.id, pinId: 'a' },
+			to: { componentId: resistor.id, pinId: '2' },
+			color: '#22c55e',
+			style: 'solid'
+		},
+		{
+			id: createId(),
+			from: { componentId: resistor.id, pinId: '1' },
+			to: { componentId: battery.id, pinId: 'neg' },
 			color: '#111827',
-			style: 'solid',
-			waypoints: [
-				{ x: 540, y: 220 },
-				{ x: 540, y: 360 }
-			]
+			style: 'solid'
 		}
 	];
 
 	return {
 		components: [battery, resistor, led],
 		wires,
+		nodes: [],
 		detection: {
 			sourceImage: null,
 			status: 'Circuit detected: LED + resistor + coin cell battery',
@@ -98,13 +89,26 @@ function sampleCircuit(): CircuitState {
 	};
 }
 
-export const circuit = writable<CircuitState>(sampleCircuit());
+function emptyCircuit(): CircuitState {
+	return {
+		components: [],
+		wires: [],
+		nodes: [],
+		detection: { sourceImage: null, status: 'New circuit', detectedAt: null }
+	};
+}
+
+// The sample loop is only there to try the editor with in development; a release starts empty.
+export const circuit = writable<CircuitState>(import.meta.env.DEV ? sampleCircuit() : emptyCircuit());
 
 export const viewMode = writable<ViewMode>('circuit');
 export const editMode = writable<boolean>(false);
 export const editTool = writable<EditTool>('select');
 export const selectedIds = writable<Set<string>>(new Set());
 export const selectedWireIds = writable<Set<string>>(new Set());
+/** The end a wire is being drawn from, waiting for its other end. */
+export const pendingWire = writable<WireEnd | null>(null);
+export const selectedNodeIds = writable<Set<string>>(new Set());
 export const wireColor = writable<string>('#16a34a');
 export const wireStyle = writable<'solid' | 'dashed'>('solid');
 export const canvasZoom = writable<number>(1);
@@ -202,10 +206,109 @@ export function mirrorComponent(id: string) {
 }
 
 export function addWire(wire: Omit<Wire, 'id'>) {
+	circuit.update((state) => {
+		if (sameEnd(wire.from, wire.to)) return state;
+		const alreadyWired = state.wires.some(
+			(w) =>
+				(sameEnd(w.from, wire.from) && sameEnd(w.to, wire.to)) ||
+				(sameEnd(w.from, wire.to) && sameEnd(w.to, wire.from))
+		);
+		if (alreadyWired) return state;
+		return { ...state, wires: [...state.wires, { ...wire, id: createId() }] };
+	});
+}
+
+export function removeWire(id: string) {
+	circuit.update((state) => ({ ...state, wires: state.wires.filter((w) => w.id !== id) }));
+}
+
+/** Puts a junction on the canvas. Wires end at it like they do at a pin. */
+export function addNode(x: number, y: number): string {
+	const id = createId();
+	circuit.update((state) => ({ ...state, nodes: [...state.nodes, { id, x, y }] }));
+	return id;
+}
+
+export function moveNode(id: string, x: number, y: number) {
 	circuit.update((state) => ({
 		...state,
-		wires: [...state.wires, { ...wire, id: createId() }]
+		nodes: state.nodes.map((n) => (n.id === id ? { ...n, x, y } : n))
 	}));
+}
+
+/**
+ * Splits a wire at a point: a junction goes there and the wire becomes two, so
+ * another wire can start from the junction. Returns the junction's id.
+ */
+export function splitWire(wireId: string, x: number, y: number): string | null {
+	const wire = get(circuit).wires.find((w) => w.id === wireId);
+	if (!wire) return null;
+	const nodeId = createId();
+	circuit.update((state) => ({
+		...state,
+		nodes: [...state.nodes, { id: nodeId, x, y }],
+		wires: [
+			...state.wires.filter((w) => w.id !== wireId),
+			{ ...wire, id: createId(), to: { nodeId }, waypoints: undefined },
+			{ ...wire, id: createId(), from: { nodeId }, waypoints: undefined }
+		]
+	}));
+	return nodeId;
+}
+
+/** Changes what a wire's end is joined to (dragging an end onto another pin or junction). */
+export function reattachWire(wireId: string, which: 'from' | 'to', end: WireEnd) {
+	circuit.update((state) => ({
+		...state,
+		wires: state.wires.map((w) => {
+			if (w.id !== wireId) return w;
+			const next = { ...w, [which]: end };
+			return sameEnd(next.from, next.to) ? w : next;
+		})
+	}));
+}
+
+/** Sets all the corners a wire is routed through. */
+export function setWireWaypoints(wireId: string, waypoints: { x: number; y: number }[]) {
+	// A corner on top of the one before it does nothing, so it is not kept.
+	const kept = waypoints.filter((p, i) => i === 0 || p.x !== waypoints[i - 1].x || p.y !== waypoints[i - 1].y);
+	circuit.update((state) => ({
+		...state,
+		wires: state.wires.map((w) => (w.id === wireId ? { ...w, waypoints: kept } : w))
+	}));
+}
+
+/** Forgets the corners a wire was pulled through, so it is routed afresh. */
+export function resetWireRoute(id: string) {
+	circuit.update((state) => ({
+		...state,
+		wires: state.wires.map((w) => (w.id === id ? { ...w, waypoints: undefined } : w))
+	}));
+}
+
+export type ComponentPatch = Partial<Pick<CircuitComponent, 'refId' | 'label' | 'value' | 'color'>>;
+
+export function updateComponent(id: string, patch: ComponentPatch) {
+	circuit.update((state) => ({
+		...state,
+		components: state.components.map((c) => (c.id === id ? { ...c, ...patch } : c))
+	}));
+}
+
+/** A junction with fewer than two wires is not doing anything: it is dropped with the wires it was left holding. */
+function tidyNodes(state: CircuitState): CircuitState {
+	let { nodes, wires } = state;
+	for (let again = true; again; ) {
+		again = false;
+		const used = (nodeId: string) =>
+			wires.filter((w) => ('nodeId' in w.from && w.from.nodeId === nodeId) || ('nodeId' in w.to && w.to.nodeId === nodeId)).length;
+		const dead = nodes.filter((n) => used(n.id) === 0);
+		if (dead.length) {
+			nodes = nodes.filter((n) => !dead.includes(n));
+			again = true;
+		}
+	}
+	return { ...state, nodes, wires };
 }
 
 export function updateWireWaypoint(wireId: string, index: number, x: number, y: number) {
@@ -263,24 +366,25 @@ export function setWireStyleFor(id: string, style: 'solid' | 'dashed') {
 export function deleteSelected() {
 	const componentIds = get(selectedIds);
 	const wireIds = get(selectedWireIds);
-	if (componentIds.size === 0 && wireIds.size === 0) return;
+	const nodeIds = get(selectedNodeIds);
+	if (componentIds.size === 0 && wireIds.size === 0 && nodeIds.size === 0) return;
 
-	circuit.update((state) => ({
-		...state,
-		components: state.components.filter((c) => !componentIds.has(c.id)),
-		wires: state.wires.filter(
-			(w) =>
-				!wireIds.has(w.id) &&
-				!componentIds.has(w.fromComponentId) &&
-				!componentIds.has(w.toComponentId)
-		)
-	}));
+	const touches = (end: WireEnd) => ('nodeId' in end ? nodeIds.has(end.nodeId) : componentIds.has(end.componentId));
+	circuit.update((state) =>
+		tidyNodes({
+			...state,
+			components: state.components.filter((c) => !componentIds.has(c.id)),
+			nodes: state.nodes.filter((n) => !nodeIds.has(n.id)),
+			wires: state.wires.filter((w) => !wireIds.has(w.id) && !touches(w.from) && !touches(w.to))
+		})
+	);
 	clearSelection();
 }
 
 export function clearSelection() {
 	selectedIds.set(new Set());
 	selectedWireIds.set(new Set());
+	selectedNodeIds.set(new Set());
 }
 
 /** Replaces the working circuit with a freshly recognized one, resetting history. */
@@ -289,4 +393,37 @@ export function loadDetectedCircuit(state: CircuitState) {
 	historyIndex = -1;
 	circuit.set(state);
 	clearSelection();
+}
+
+/** Starts over with an empty canvas. */
+export function newCircuit() {
+	loadDetectedCircuit({
+		components: [],
+		wires: [],
+		nodes: [],
+		detection: { sourceImage: null, status: 'New circuit', detectedAt: null }
+	});
+}
+
+/** The circuit as a diagram, in the format the rest of the tools read and write. */
+export function exportDiagram(): Diagram {
+	return circuitToDiagram(get(circuit));
+}
+
+/** Replaces the circuit with a diagram read from a file. Returns what could not be used, or an error. */
+export function loadDiagram(input: unknown): { warnings: string[] } | { error: string } {
+	const parsed = parseDiagram(input);
+	if ('error' in parsed) return parsed;
+	const { components, wires, nodes } = diagramToCircuit(parsed.diagram);
+	loadDetectedCircuit({
+		components,
+		wires,
+		nodes,
+		detection: {
+			sourceImage: null,
+			status: `Imported ${components.length} parts and ${wires.length} wires`,
+			detectedAt: Date.now()
+		}
+	});
+	return { warnings: parsed.warnings };
 }

@@ -19,6 +19,7 @@
 		editTool,
 		selectedIds,
 		selectedWireIds,
+		selectedNodeIds,
 		wireColor,
 		wireStyle,
 		deleteSelected,
@@ -104,7 +105,7 @@
 	<button
 		class="chrome-icon-btn"
 		aria-label="Delete"
-		disabled={!hasComponentSelection && !hasWireSelection}
+		disabled={!hasComponentSelection && !hasWireSelection && $selectedNodeIds.size === 0}
 		onclick={deleteSelected}
 	>
 		<Trash2 size={16} />
