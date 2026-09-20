@@ -1,3 +1,11 @@
+## Project Configuration
+
+- **Language**: TypeScript
+- **Package Manager**: bun
+- **Add-ons**: none
+
+---
+
 # AGENTS.md
 
 This file provides repository-wide guidance for coding agents and human contributors.
@@ -19,9 +27,21 @@ The intended processing pipeline is:
 - Client: Tauri, TypeScript, and Svelte/SvelteKit, targeting desktop and mobile, specially Android.
 - On-device vision: OpenCV for preprocessing and the first recognition pass.
 - Conversion service: an external service that owns the heavier PyTorch inference pipeline.
-- Data store: Tiger Data for component definitions and circuit-diagram equivalents.
+- Data store: PostgreSQL, deployed in a standard Docker container, for component definitions and circuit-diagram equivalents.
 
 These are architectural intentions while the repository is being bootstrapped. Do not invent APIs, schemas, commands, or deployed infrastructure and present them as established. Record material new decisions in the repository when they are implemented.
+
+## Architecture reference
+
+The documents in `reference/` capture the current product and technical direction. Read the relevant documents before changing circuit representation, ML service contracts, rendering, simulation, component data, or persistence.
+
+- `reference/system-pipeline.md`: end-to-end recognition pipeline and canonical Circuit IR.
+- `reference/rendering-and-interaction.md`: shared 2D/3D rendering and interaction model.
+- `reference/simulation.md`: simulation boundaries, engine options, and validation requirements.
+- `reference/postgresql.md`: PostgreSQL ownership, proposed records, versioning, and sampled simulation data.
+- `reference/schema.sql.md`: draft PostgreSQL schema expressed as annotated SQL.
+
+These are working reference notes, not proof that an API, schema, dependency, or service has been implemented. Preserve the separation between the canonical circuit definition and its ML, layout, rendering, and simulation representations. Update the relevant reference document when an architectural decision changes.
 
 ## Engineering principles
 

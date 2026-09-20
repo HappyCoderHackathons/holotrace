@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holotrace training</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface-1: #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --track: #cde2fb;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface-1: #1a1a19;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255, 255, 255, 0.10);
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+      --track: #383835;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .viz-root {
+    min-height: 100vh; background: var(--page); color: var(--text-primary);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 20px 24px 48px;
+  }
+  .wrap { max-width: 1280px; margin: 0 auto; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 16px; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 8px 0 0; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0; }
+  .sub { color: var(--text-secondary); font-size: 12px; margin: 2px 0 10px; }
+  select, button {
+    font: inherit; color: var(--text-primary); background: var(--surface-1);
+    border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px;
+  }
+  label.toggle { display: inline-flex; gap: 6px; align-items: center; color: var(--text-secondary); }
+  .fresh { color: var(--text-muted); font-size: 12px; margin-left: auto; }
+  .banner {
+    display: none; margin-bottom: 12px; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary);
+  }
+  .banner.show { display: flex; gap: 8px; align-items: center; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .tile .label { color: var(--text-secondary); font-size: 12px; }
+  .tile .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .tile .hero { font-size: 48px; font-weight: 600; line-height: 1.1; margin-top: 2px; }
+  .tile .note { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+  .status { display: inline-flex; align-items: center; gap: 8px; }
+  .meter { height: 8px; border-radius: 4px; background: var(--track); margin-top: 10px; overflow: hidden; }
+  .meter > div { height: 100%; border-radius: 4px; background: var(--series-1); transition: width .4s; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 6px; color: var(--text-secondary); font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .key { width: 14px; height: 2px; border-radius: 1px; display: inline-block; }
+  .chart { position: relative; }
+  .chart svg { display: block; width: 100%; overflow: visible; }
+  .chart svg:focus { outline: 2px solid var(--series-1); outline-offset: 2px; border-radius: 4px; }
+  .tick { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .endlabel { fill: var(--text-secondary); font-size: 11px; }
+  .empty { color: var(--text-muted); padding: 24px 0; text-align: center; }
+  .tooltip {
+    position: fixed; pointer-events: none; z-index: 10; display: none; min-width: 150px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; box-shadow: 0 4px 16px rgba(0, 0, 0, .12); font-size: 12px;
+  }
+  .tooltip .head { color: var(--text-secondary); margin-bottom: 4px; }
+  .tooltip .row { display: flex; align-items: center; gap: 8px; }
+  .tooltip strong { font-variant-numeric: tabular-nums; min-width: 48px; }
+  .tooltip .name { color: var(--text-secondary); }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: var(--text-secondary); font-size: 12px; }
+  table { border-collapse: collapse; margin-top: 6px; font-size: 12px; width: 100%; }
+  th, td { text-align: right; padding: 3px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-secondary); font-weight: 600; }
+  .scroll { max-height: 320px; overflow: auto; }
+  pre.log {
+    margin: 0; max-height: 320px; overflow: auto; font: 12px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace;
+    color: var(--text-secondary); white-space: pre-wrap; word-break: break-all;
+  }
+  .bar:hover, .bar:focus { opacity: .75; outline: none; }
+  body.loading .card { opacity: .85; transition: opacity .2s; }
+</style>
+</head>
+<body>
+<div class="viz-root">
+<div class="wrap">
+  <header>
+    <h1>Holotrace training</h1>
+    <select id="run" aria-label="Training run"></select>
+    <label class="toggle"><input type="checkbox" id="auto" checked> Auto-refresh (10 s)</label>
+    <button id="refresh" type="button">Refresh</button>
+    <span class="fresh" id="fresh"></span>
+  </header>
+  <div class="banner" id="banner" role="status"></div>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section class="grid2">
+    <div class="card"><h2>Loss</h2><p class="sub" id="loss-sub">Per epoch, lower is better</p><div id="loss"></div></div>
+    <div class="card"><h2>Validation quality</h2><p class="sub" id="quality-sub">Per epoch, higher is better</p><div id="quality"></div></div>
+  </section>
+
+  <section class="grid2">
+    <div class="card"><h2 id="classes-title">Per-class score</h2><p class="sub" id="classes-sub"></p><div id="classes"></div></div>
+    <div class="card">
+      <h2>Learning rate</h2><p class="sub">Warmup, then cosine decay</p><div id="lr"></div>
+    </div>
+  </section>
+
+  <section class="tiles" id="system"></section>
+  <section class="grid2" id="logs"></section>
+</div>
+</div>
+<div class="tooltip" id="tooltip" role="tooltip"></div>
+
+<script>
+"use strict";
+const SVG = "http://www.w3.org/2000/svg";
+const SERIES = {
+  classifier: {
+    loss: [["train_loss", "Train loss"], ["val_loss", "Val loss"]],
+    quality: [["val_macro_f1", "Val macro F1"], ["val_acc", "Val accuracy"], ["train_acc", "Train accuracy"]],
+    metric: "Val macro F1", classScore: "f1", classLabel: "F1",
+  },
+  detector: {
+    loss: [["train_loss_classifier", "ROI class"], ["train_loss_box_reg", "ROI box"],
+           ["train_loss_objectness", "RPN objectness"], ["train_loss_rpn_box_reg", "RPN box"]],
+    quality: [["val_map", "Val mAP@0.5"]],
+    metric: "Val mAP@0.5", classScore: "ap", classLabel: "AP@0.5",
+  },
+};
+const STATUS = {
+  train: ["Training", "--good", "play"], eval: ["Evaluating", "--good", "play"],
+  done: ["Finished", "--good", "check"], finished: ["Finished", "--good", "check"],
+  stopped: ["Early stopped", "--good", "check"], starting: ["Starting", "--warning", "clock"],
+  stalled: ["No recent update", "--critical", "alert"],
+};
+const state = { runs: [], selected: null, detail: null, system: null, fetchedAt: 0, error: null };
+const $ = (id) => document.getElementById(id);
+const tooltip = $("tooltip");
+
+// ---------- helpers ----------
+function el(tag, attrs = {}, text) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+function svgEl(tag, attrs = {}, text) {
+  const node = document.createElementNS(SVG, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+const num = (v) => typeof v === "number" && Number.isFinite(v);
+const fmt3 = (v) => (num(v) ? v.toFixed(3) : "n/a");
+const fmtLr = (v) => (num(v) ? (v === 0 ? "0" : v.toExponential(1)) : "n/a");
+const fmtTick = (v) => String(+v.toFixed(3));
+const fmtInt = (v) => (num(v) ? v.toLocaleString() : "?");
+const fmtGB = (b) => (b / 1e9).toFixed(1);
+function fmtDuration(s) {
+  if (!num(s) || s < 0) return "n/a";
+  if (s < 60) return `${Math.round(s)} s`;
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  const h = Math.floor(s / 3600);
+  return `${h} h ${Math.round((s - h * 3600) / 60)} min`;
+}
+function niceTicks(min, max, count = 5) {
+  if (min === max) max = min + 1;
+  const raw = (max - min) / count;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const norm = raw / mag;
+  const step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+  const ticks = [];
+  // Always extend to a tick at or above max so no data point sits outside the axis
+  for (let v = Math.floor(min / step) * step; ; v += step) {
+    ticks.push(+v.toPrecision(12));
+    if (v >= max - step * 1e-9) break;
+  }
+  return ticks;
+}
+function icon(kind) {
+  const s = svgEl("svg", { width: 16, height: 16, viewBox: "0 0 16 16", "aria-hidden": "true" });
+  const paths = {
+    play: "M5 3.5v9l7-4.5z",
+    check: "M3 8.5l3 3 7-7",
+    clock: "M8 4v4l3 2M8 1.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 0 0 0-13z",
+    alert: "M8 1.5l7 12.5H1zM8 6v4M8 12v.5",
+  };
+  const filled = kind === "play";
+  s.append(svgEl("path", {
+    d: paths[kind], fill: filled ? "currentColor" : "none", stroke: "currentColor",
+    "stroke-width": filled ? 0 : 1.8, "stroke-linecap": "round", "stroke-linejoin": "round",
+  }));
+  return s;
+}
+function showTip(x, y, head, rows) {
+  tooltip.replaceChildren(el("div", { class: "head" }, head));
+  for (const [color, value, name] of rows) {
+    const row = el("div", { class: "row" });
+    const key = el("span", { class: "key" });
+    if (color) key.style.background = color;
+    row.append(key, el("strong", {}, value), el("span", { class: "name" }, name));
+    tooltip.append(row);
+  }
+  tooltip.style.display = "block";
+  const r = tooltip.getBoundingClientRect();
+  const left = x + 14 + r.width > window.innerWidth ? x - r.width - 14 : x + 14;
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${Math.max(8, Math.min(y - r.height / 2, window.innerHeight - r.height - 8))}px`;
+}
+const hideTip = () => { tooltip.style.display = "none"; };
+function tableView(headers, rows) {
+  const details = el("details");
+  details.append(el("summary", {}, "View as table"));
+  const wrap = el("div", { class: "scroll" });
+  const table = el("table");
+  const tr = el("tr");
+  headers.forEach((h) => tr.append(el("th", {}, h)));
+  table.append(tr);
+  for (const row of rows) {
+    const r = el("tr");
+    row.forEach((c) => r.append(el("td", {}, c)));
+    table.append(r);
+  }
+  wrap.append(table);
+  details.append(wrap);
+  return details;
+}
+
+// ---------- line chart ----------
+function lineChart(container, records, series, { yDomain, yFormat = fmt3, tickFormat = fmtTick, height = 220 } = {}) {
+  container.replaceChildren();
+  const color = (i) => getComputedStyle(container).getPropertyValue(`--series-${i + 1}`).trim();
+  const present = series.filter(([key]) => records.some((r) => num(r[key])));
+  if (!present.length) {
+    container.append(el("div", { class: "empty" }, "No completed epochs yet"));
+    return;
+  }
+  const slot = (key) => series.findIndex(([k]) => k === key); // color follows the series, never its rank
+  if (present.length > 1) {
+    const legend = el("div", { class: "legend" });
+    for (const [key, name] of present) {
+      const item = el("span");
+      const k = el("span", { class: "key" });
+      k.style.background = color(slot(key));
+      item.append(k, document.createTextNode(name));
+      legend.append(item);
+    }
+    container.append(legend);
+  }
+
+  const width = Math.max(320, container.clientWidth);
+  const m = { l: 48, r: present.length <= 4 ? 104 : 16, t: 10, b: 26 };
+  const iw = width - m.l - m.r, ih = height - m.t - m.b;
+  const epochs = records.map((r) => r.epoch);
+  const xMin = Math.min(...epochs), xMax = Math.max(...epochs);
+  const values = present.flatMap(([k]) => records.map((r) => r[k]).filter(num));
+  const yt = yDomain ? niceTicks(yDomain[0], yDomain[1]) : niceTicks(0, Math.max(...values));
+  const y0 = yt[0], y1 = yt[yt.length - 1];
+  const sx = (x) => m.l + (xMax === xMin ? iw / 2 : ((x - xMin) / (xMax - xMin)) * iw);
+  const sy = (v) => m.t + ih - ((v - y0) / (y1 - y0)) * ih;
+
+  const svg = svgEl("svg", { viewBox: `0 0 ${width} ${height}`, height, tabindex: 0, role: "img" });
+  svg.setAttribute("aria-label", `${present.map((s) => s[1]).join(", ")} by epoch`);
+  for (const t of yt) {
+    svg.append(svgEl("line", { x1: m.l, x2: m.l + iw, y1: sy(t), y2: sy(t), stroke: t === y0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1 }));
+    svg.append(svgEl("text", { x: m.l - 8, y: sy(t) + 4, "text-anchor": "end", class: "tick" }, tickFormat(t)));
+  }
+  const xt = niceTicks(xMin, xMax, Math.min(8, Math.max(1, xMax - xMin))).filter((t) => Number.isInteger(t) && t >= xMin && t <= xMax);
+  for (const t of xt) svg.append(svgEl("text", { x: sx(t), y: height - 6, "text-anchor": "middle", class: "tick" }, String(t)));
+
+  const ends = [];
+  for (const [key, name] of present) {
+    const pts = records.filter((r) => num(r[key])).map((r) => [sx(r.epoch), sy(r[key]), r[key]]);
+    const c = color(slot(key));
+    if (pts.length > 1) {
+      svg.append(svgEl("path", {
+        d: pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(""),
+        fill: "none", stroke: c, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round",
+      }));
+    }
+    const last = pts[pts.length - 1];
+    svg.append(svgEl("circle", { cx: last[0], cy: last[1], r: 4, fill: c, stroke: "var(--surface-1)", "stroke-width": 2 }));
+    ends.push({ y: last[1], text: `${name} ${yFormat(last[2])}` });
+  }
+  if (present.length <= 4) {
+    // Direct end labels only where they do not collide; the legend always carries identity
+    let prev = -Infinity;
+    for (const e of ends.sort((a, b) => a.y - b.y)) {
+      if (e.y - prev < 13) continue;
+      svg.append(svgEl("text", { x: m.l + iw + 8, y: e.y + 4, class: "endlabel" }, e.text));
+      prev = e.y;
+    }
+  }
+
+  const cross = svgEl("line", { y1: m.t, y2: m.t + ih, stroke: "var(--axis)", "stroke-width": 1, visibility: "hidden" });
+  svg.append(cross);
+  const hit = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+  svg.append(hit);
+  let index = records.length - 1;
+  const show = (i, clientX, clientY) => {
+    index = Math.max(0, Math.min(records.length - 1, i));
+    const r = records[index];
+    cross.setAttribute("x1", sx(r.epoch));
+    cross.setAttribute("x2", sx(r.epoch));
+    cross.setAttribute("visibility", "visible");
+    const rows = present.map(([k, name]) => [color(slot(k)), num(r[k]) ? yFormat(r[k]) : "n/a", name]);
+    showTip(clientX, clientY, `Epoch ${r.epoch}`, rows);
+  };
+  hit.addEventListener("pointermove", (ev) => {
+    const box = svg.getBoundingClientRect();
+    const x = ((ev.clientX - box.left) / box.width) * width;
+    let best = 0;
+    records.forEach((r, i) => { if (Math.abs(sx(r.epoch) - x) < Math.abs(sx(records[best].epoch) - x)) best = i; });
+    show(best, ev.clientX, ev.clientY);
+  });
+  const leave = () => { cross.setAttribute("visibility", "hidden"); hideTip(); };
+  hit.addEventListener("pointerleave", leave);
+  svg.addEventListener("blur", leave);
+  svg.addEventListener("keydown", (ev) => {
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    ev.preventDefault();
+    const box = svg.getBoundingClientRect();
+    const next = index + (ev.key === "ArrowRight" ? 1 : -1);
+    const r = records[Math.max(0, Math.min(records.length - 1, next))];
+    show(next, box.left + (sx(r.epoch) / width) * box.width, box.top + box.height / 2);
+  });
+  const chart = el("div", { class: "chart" });
+  chart.append(svg);
+  container.append(chart);
+  container.append(tableView(["Epoch", ...present.map((s) => s[1])],
+    records.map((r) => [String(r.epoch), ...present.map(([k]) => (num(r[k]) ? yFormat(r[k]) : ""))])));
+}
+
+// ---------- per-class bars ----------
+function classBars(container, best, kind) {
+  container.replaceChildren();
+  const spec = SERIES[kind];
+  $("classes-title").textContent = `Per-class ${spec.classLabel}`;
+  if (!best || !best.per_class) {
+    $("classes-sub").textContent = "Appears after the first validation pass";
+    container.append(el("div", { class: "empty" }, "No validation results yet"));
+    return;
+  }
+  const rows = Object.entries(best.per_class)
+    .map(([label, v]) => ({ label, score: v[spec.classScore], v }))
+    .filter((r) => num(r.score))
+    .sort((a, b) => a.score - b.score);
+  $("classes-sub").textContent = `Best checkpoint (epoch ${best.epoch}), weakest classes first`;
+  const width = Math.max(320, container.clientWidth);
+  const rowH = 20, barH = 12, labelW = 200, valueW = 44;
+  const iw = width - labelW - valueW;
+  const svg = svgEl("svg", { viewBox: `0 0 ${width} ${rows.length * rowH + 4}`, height: rows.length * rowH + 4 });
+  const c = getComputedStyle(container).getPropertyValue("--series-1").trim();
+  rows.forEach((r, i) => {
+    const y = i * rowH + (rowH - barH) / 2;
+    const w = Math.max(0, r.score * iw);
+    svg.append(svgEl("text", { x: labelW - 8, y: y + barH - 2, "text-anchor": "end", class: "endlabel" }, r.label));
+    svg.append(svgEl("line", { x1: labelW, x2: labelW, y1: i * rowH, y2: (i + 1) * rowH, stroke: "var(--axis)" }));
+    const rad = Math.min(4, w / 2);
+    // Square at the baseline, 4px rounded data end
+    const d = w > 0
+      ? `M${labelW},${y}h${w - rad}a${rad},${rad} 0 0 1 ${rad},${rad}v${barH - 2 * rad}a${rad},${rad} 0 0 1 -${rad},${rad}h-${w - rad}z`
+      : "";
+    const bar = svgEl("path", { d, fill: c, class: "bar", tabindex: 0 });
+    const hitArea = svgEl("rect", { x: 0, y: i * rowH, width, height: rowH, fill: "transparent" });
+    svg.append(bar, svgEl("text", { x: labelW + w + 6, y: y + barH - 2, class: "tick" }, fmt3(r.score)), hitArea);
+    const detail = kind === "classifier"
+      ? [[c, fmt3(r.v.f1), "F1"], [null, fmt3(r.v.precision), "precision"], [null, fmt3(r.v.recall), "recall"], [null, fmtInt(r.v.support), "support"]]
+      : [[c, fmt3(r.v.ap), "AP@0.5"], [null, fmtInt(r.v.num_gt), "ground-truth boxes"]];
+    const on = (ev) => { bar.style.opacity = ".75"; showTip(ev.clientX, ev.clientY, r.label, detail); };
+    hitArea.addEventListener("pointermove", on);
+    hitArea.addEventListener("pointerleave", () => { bar.style.opacity = ""; hideTip(); });
+    bar.addEventListener("focus", () => { const b = bar.getBoundingClientRect(); showTip(b.right, b.top, r.label, detail); });
+    bar.addEventListener("blur", hideTip);
+  });
+  const scroll = el("div", { class: "scroll" });
+  scroll.append(svg);
+  container.append(scroll);
+  const headers = kind === "classifier" ? ["Class", "F1", "Precision", "Recall", "Support"] : ["Class", "AP@0.5", "GT boxes"];
+  container.append(tableView(headers, rows.map((r) => kind === "classifier"
+    ? [r.label, fmt3(r.v.f1), fmt3(r.v.precision), fmt3(r.v.recall), fmtInt(r.v.support)]
+    : [r.label, fmt3(r.v.ap), fmtInt(r.v.num_gt)])));
+}
+
+// ---------- tiles ----------
+function tile(label, value, { note, hero = false, meter, node } = {}) {
+  const t = el("div", { class: "card tile" });
+  t.append(el("div", { class: "label" }, label));
+  if (node) t.append(node); else t.append(el("div", { class: hero ? "hero" : "value" }, value));
+  if (meter !== undefined) {
+    const m = el("div", { class: "meter", role: "meter", "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": Math.round(meter * 100) });
+    const fill = el("div");
+    fill.style.width = `${Math.max(0, Math.min(1, meter)) * 100}%`;
+    m.append(fill);
+    t.append(m);
+  }
+  if (note) t.append(el("div", { class: "note" }, note));
+  return t;
+}
+function runTiles() {
+  const box = $("tiles");
+  box.replaceChildren();
+  const d = state.detail;
+  if (!d) {
+    // Before the first run exists (download, import, crop export), surface the freshest log line instead
+    const latest = (state.system?.logs || [])
+      .filter((l) => l.lines.length && num(l.modified))
+      .sort((a, b) => b.modified - a.modified)[0];
+    const st = el("div", { class: "value status" });
+    const ic = icon("clock");
+    ic.style.color = "var(--warning)";
+    st.append(ic, document.createTextNode("Waiting for the first training run"));
+    box.append(tile("Status", "", {
+      node: st,
+      note: latest ? `Latest log line: ${latest.lines[latest.lines.length - 1]}` : "Runs appear here as soon as training starts",
+    }));
+    return;
+  }
+  const s = d.summary, p = d.progress, recs = d.records, spec = SERIES[s.kind];
+  const [label, colorVar, iconKind] = STATUS[s.status] || ["Unknown", "--warning", "alert"];
+  const st = el("div", { class: "value status" });
+  const ic = icon(iconKind);
+  ic.style.color = `var(${colorVar})`;
+  st.append(ic, document.createTextNode(label));
+  const since = p ? Date.now() / 1000 - p.time : null;
+  box.append(tile("Status", "", { node: st, note: p ? `Last update ${fmtDuration(since)} ago` : `${s.kind} run` }));
+
+  box.append(tile("Epochs completed", `${s.epochs_done} / ${s.epochs ?? "?"}`, {
+    meter: s.epochs ? s.epochs_done / s.epochs : 0, note: `${s.kind} · ${d.config?.model?.arch ?? ""}`,
+  }));
+
+  // Epoch durations from metric timestamps; progress.json gives position inside the current epoch
+  const times = recs.map((r) => r.time).filter(num);
+  const starts = p ? [p.started, ...times] : times;
+  const durations = starts.slice(1).map((t, i) => t - starts[i]);
+  const avg = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : null;
+  if (p && (p.phase === "train" || p.phase === "eval")) {
+    const frac = p.steps ? p.step / p.steps : 0;
+    const epochStart = times.length ? times[times.length - 1] : p.started;
+    const elapsed = Date.now() / 1000 - epochStart;
+    const perEpoch = avg ?? (frac > 0.02 ? elapsed / frac : null);
+    const remaining = perEpoch ? perEpoch * (p.epochs - s.epochs_done) - elapsed : null;
+    const phase = p.phase === "eval" ? "validating" : `step ${fmtInt(p.step)} / ${fmtInt(p.steps)}`;
+    box.append(tile(`Epoch ${p.epoch}`, phase, {
+      meter: p.phase === "eval" ? 1 : frac,
+      note: remaining !== null ? `Run finishes in about ${fmtDuration(Math.max(0, remaining))}` : "Estimating time left",
+    }));
+  } else {
+    box.append(tile("Epoch time", avg ? fmtDuration(avg) : "n/a", { note: "Average per epoch" }));
+  }
+  box.append(tile(`Best ${spec.metric}`, fmt3(s.best), {
+    hero: true, note: s.best_epoch ? `Epoch ${s.best_epoch}` : "After first validation",
+  }));
+  const last = recs[recs.length - 1];
+  box.append(tile("Learning rate", fmtLr(last?.lr), { note: "End of last epoch" }));
+}
+function systemTiles() {
+  const box = $("system");
+  box.replaceChildren();
+  const s = state.system;
+  if (!s) return;
+  if (s.load) {
+    box.append(tile("CPU load (1 min)", `${s.load[0].toFixed(1)} / ${s.cpus} cores`, {
+      meter: s.load[0] / s.cpus, note: `5 min ${s.load[1].toFixed(1)} · 15 min ${s.load[2].toFixed(1)}`,
+    }));
+  }
+  if (s.memory) {
+    box.append(tile("Memory", `${fmtGB(s.memory.used)} / ${fmtGB(s.memory.total)} GB`, { meter: s.memory.used / s.memory.total }));
+  }
+  box.append(tile("Disk", `${fmtGB(s.disk.used)} / ${fmtGB(s.disk.total)} GB`, {
+    meter: s.disk.used / s.disk.total, note: `${fmtGB(s.disk.total - s.disk.used)} GB free`,
+  }));
+  // One pane per log, reused across refreshes so a reader's scroll position survives
+  const holder = $("logs");
+  const logs = s.logs || [];
+  while (holder.children.length > logs.length) holder.lastChild.remove();
+  logs.forEach((log, i) => {
+    let card = holder.children[i];
+    if (!card) {
+      card = el("div", { class: "card" });
+      card.append(el("h2"), el("p", { class: "sub" }), el("pre", { class: "log" }));
+      holder.append(card);
+    }
+    const [title, sub, pre] = card.children;
+    title.textContent = log.path.split(/[\\/]/).pop();
+    sub.textContent = num(log.modified)
+      ? `${log.path} · updated ${fmtDuration(Date.now() / 1000 - log.modified)} ago`
+      : `${log.path} · not created yet`;
+    const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+    pre.textContent = log.lines.length ? log.lines.join("\n") : "(empty)";
+    if (atBottom) pre.scrollTop = pre.scrollHeight;
+  });
+}
+
+// ---------- data ----------
+const runKey = (r) => `${r.kind}/${r.name}`;
+async function getJSON(url) {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`${url} returned ${res.status}`);
+  return res.json();
+}
+function renderRunSelect() {
+  const select = $("run");
+  select.replaceChildren(...state.runs.map((r) => {
+    const opt = el("option", { value: runKey(r) }, `${r.kind} · ${r.name} · ${(STATUS[r.status] || ["?"])[0]}`);
+    if (runKey(r) === state.selected) opt.selected = true;
+    return opt;
+  }));
+  select.hidden = !state.runs.length;
+}
+async function refresh() {
+  document.body.classList.add("loading");
+  try {
+    const [runs, system] = await Promise.all([getJSON("/api/runs"), getJSON("/api/system")]);
+    state.runs = runs;
+    state.system = system;
+    if (!runs.some((r) => runKey(r) === state.selected)) {
+      const active = runs.find((r) => r.status === "train" || r.status === "eval");
+      state.selected = runs.length ? runKey(active || runs[0]) : null;
+    }
+    renderRunSelect();
+    if (state.selected) {
+      const [kind, name] = state.selected.split("/");
+      state.detail = await getJSON(`/api/runs/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`);
+    } else {
+      state.detail = null;
+    }
+    state.fetchedAt = Date.now();
+    state.error = null;
+  } catch (err) {
+    state.error = err.message;
+  }
+  document.body.classList.remove("loading");
+  render();
+}
+function render() {
+  const banner = $("banner");
+  banner.replaceChildren();
+  if (state.error) {
+    const ic = icon("alert");
+    ic.style.color = "var(--critical)";
+    banner.append(ic, document.createTextNode(`Cannot reach the dashboard server (${state.error}). Showing the last data received.`));
+  }
+  banner.classList.toggle("show", !!state.error);
+  runTiles();
+  systemTiles();
+  const d = state.detail;
+  const kind = d ? d.summary.kind : "classifier";
+  const records = d ? d.records : [];
+  lineChart($("loss"), records, SERIES[kind].loss);
+  lineChart($("quality"), records, SERIES[kind].quality, { yDomain: [0, 1] });
+  lineChart($("lr"), records, [["lr", "Learning rate"]], { yFormat: fmtLr, tickFormat: fmtLr, height: 160 });
+  classBars($("classes"), d ? d.best : null, kind);
+}
+
+$("run").addEventListener("change", (ev) => { state.selected = ev.target.value; refresh(); });
+$("refresh").addEventListener("click", refresh);
+setInterval(() => { if ($("auto").checked) refresh(); }, 10_000);
+setInterval(() => {
+  $("fresh").textContent = state.fetchedAt ? `Updated ${fmtDuration((Date.now() - state.fetchedAt) / 1000)} ago` : "";
+}, 1000);
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+[Unit]
+Description=Holotrace ML recognition API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/holotrace/classifier
+EnvironmentFile=%h/.config/holotrace/ml.env
+ExecStart=%h/holotrace/classifier/.venv/bin/holotrace-ml serve
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=%h/holotrace/classifier/models
+
+[Install]
+WantedBy=default.target
