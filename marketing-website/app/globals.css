@@ -157,7 +157,8 @@ button { font: inherit; }
 .download-card ul { margin: 24px 0 27px; padding: 20px 0 0; border-top: 1px solid var(--line); list-style: none; }
 .download-card li { display: flex; align-items: center; gap: 8px; margin: 10px 0; color: #aeb8c4; font-size: 13px; }
 .download-card li svg { color: #7ed1a8; }
-.coming-soon { display: flex; align-items: center; justify-content: center; min-height: 45px; border: 1px solid var(--line); border-radius: 7px; background: #0d1218; color: #6f7c8c; font-size: 13px; font-weight: 600; cursor: not-allowed; }
+.download-button { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 45px; border: 1px solid rgba(112, 151, 255, .42); border-radius: 7px; background: rgba(75, 124, 255, .12); color: #dce5ff; font-size: 13px; font-weight: 650; transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+.download-button:hover { transform: translateY(-2px); border-color: rgba(130, 164, 255, .72); background: rgba(75, 124, 255, .2); }
 .release-link { grid-column: 2; display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: -70px; color: #aeb9c7; font-size: 14px; }
 .release-link:hover { color: white; }
 
