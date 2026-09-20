@@ -8,6 +8,7 @@ Holotrace turns a photograph of a hand-drawn circuit into an interactive circuit
 | --- | --- |
 | [`src/`](src), [`src-tauri/`](src-tauri) | The app: the SvelteKit interface and the Tauri (Rust) shell. Development instructions are below. |
 | [`src/lib/vision/`](src/lib/vision/README.md) | The on-device OpenCV first pass, part of the app: a photo in, a sharpened image and a recognition request out. |
+| [`src/lib/diagram/`](src/lib/diagram/README.md) | The diagram format (a Wokwi-shaped `diagram.json` of parts and connections), its part catalog, and building and reading it. |
 | [`opencv/`](opencv/README.md) | A webcam dev page for that first pass. It pulls the code from `src/lib/vision`. |
 | [`classifier/`](classifier/README.md) | The PyTorch recognition models and the service that runs them. |
 | [`api_server/`](api_server/README.md) | The server side: the database schema and turning recognition results into a circuit. |
