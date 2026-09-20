@@ -4,6 +4,7 @@ import {
   Camera,
   Check,
   Code2,
+  Download,
   Monitor,
   MousePointer2,
   ScanLine,
@@ -15,6 +16,8 @@ import {
 
 const githubUrl = 'https://github.com/holotrace-was-taken/holotrace';
 const releasesUrl = `${githubUrl}/releases`;
+const windowsDownloadUrl = `${githubUrl}/releases/download/desktop-latest/holotrace-windows-x64-setup.exe`;
+const androidDownloadUrl = `${githubUrl}/releases/download/android-latest/holotrace-android-debug.apk`;
 
 const steps = [
   { number: '01', label: 'CAPTURE', title: 'Start with the sketch', description: 'Take a photo on Android or bring in an existing image from your desktop.', icon: Camera },
@@ -221,22 +224,22 @@ export default function Home() {
       </section>
 
       <section className="download section" id="download">
-        <div className="download-heading"><span className="eyebrow">DOWNLOAD HOLOTRACE</span><h2>One workspace.<br />Two ways in.</h2><p>The first public builds are being prepared. Follow releases to know when installers are ready.</p></div>
+        <div className="download-heading"><span className="eyebrow">DOWNLOAD HOLOTRACE</span><h2>One workspace.<br />Two ways in.</h2><p>Try the latest development build for Windows or Android. New packages are published after app changes land on main.</p></div>
         <div className="download-grid">
           <article className="download-card">
             <div className="platform-icon"><Monitor size={29} /></div><span className="platform-label">DESKTOP</span><h3>Holotrace for Windows</h3>
             <p>A focused editor for reviewing captures, arranging components, and working across the full circuit canvas.</p>
             <ul><li><Check size={14} /> Mouse and touch input</li><li><Check size={14} /> Full circuit workspace</li><li><Check size={14} /> Windows installer</li></ul>
-            <span className="coming-soon" aria-disabled="true">Windows build coming soon</span>
+            <a className="download-button" href={windowsDownloadUrl}><Download size={16} /> Download for Windows</a>
           </article>
           <article className="download-card android-card">
             <div className="platform-icon"><Smartphone size={29} /></div><span className="platform-label">MOBILE</span><h3>Holotrace for Android</h3>
             <p>Camera-first capture and a touch-ready circuit workspace built for the device already in your pocket.</p>
             <ul><li><Check size={14} /> Direct camera capture</li><li><Check size={14} /> Touch-first controls</li><li><Check size={14} /> Android package</li></ul>
-            <span className="coming-soon" aria-disabled="true">Android build coming soon</span>
+            <a className="download-button" href={androidDownloadUrl}><Download size={16} /> Download Android APK</a>
           </article>
         </div>
-        <a className="release-link" href={releasesUrl} target="_blank" rel="noreferrer"><Code2 size={18} /> Watch GitHub releases <ArrowRight size={16} /></a>
+        <a className="release-link" href={releasesUrl} target="_blank" rel="noreferrer"><Code2 size={18} /> View build history on GitHub <ArrowRight size={16} /></a>
       </section>
 
       <footer>
