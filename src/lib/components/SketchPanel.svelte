@@ -1,13 +1,19 @@
 <script lang="ts">
 	import { ImageUp, CheckCircle2, Camera } from 'lucide-svelte';
 	import { circuit } from '$lib/stores/circuit';
-	import { isCoarsePointer } from '$lib/stores/ui';
+	import { hasVideoInput } from '$lib/camera';
 
 	interface Props {
 		onUploadClick?: () => void;
 	}
 
 	let { onUploadClick = () => {} }: Props = $props();
+
+	/** Mirrors UploadModal: the affordance follows the camera, not the pointer. */
+	let cameraAvailable = $state(false);
+	$effect(() => {
+		hasVideoInput().then((available) => (cameraAvailable = available));
+	});
 
 	const detection = $derived($circuit.detection);
 	const componentCount = $derived($circuit.components.length);
@@ -35,7 +41,7 @@
 			</div>
 		{:else}
 			<div class="flex flex-col items-center gap-2 px-4 text-center text-chrome-400">
-				{#if $isCoarsePointer}
+				{#if cameraAvailable}
 					<Camera size={26} />
 					<span class="text-xs font-medium text-chrome-300">Photograph a sketch</span>
 				{:else}
