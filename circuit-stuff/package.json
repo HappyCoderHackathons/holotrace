@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "description": "Scripts for trying out the circuit-recognition service by hand. They need nothing installed to run; the dev dependency is only for editor types.",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.9.3"
+  },
+  "scripts": {
+    "recognize": "bun recognize.ts",
+    "check": "tsc -p ."
+  }
+}
