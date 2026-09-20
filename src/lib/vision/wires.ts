@@ -104,11 +104,22 @@ class Sets {
 }
 
 export function traceWires(ink: Mat, boxes: Rect[], thickness: number): WireGraph {
+    // Every mat made along the way is freed, also when something throws part-way.
+    const mats: Mat[] = [];
+    try {
+        return trace(mats, ink, boxes, thickness);
+    } finally {
+        for (const mat of mats) mat.delete();
+    }
+}
+
+function trace(mats: Mat[], ink: Mat, boxes: Rect[], thickness: number): WireGraph {
     const scale = Math.min(1, WIRE_TRACE_STROKE_PIXELS / Math.max(1, thickness));
     const stroke = thickness * scale;
 
     // A working copy at the tracing scale, with every component wiped out of it.
     const work = new cv.Mat();
+    mats.push(work);
     if (scale < 1) {
         const small = new cv.Mat();
         cv.resize(ink, small, new cv.Size(Math.max(1, Math.round(ink.cols * scale)), Math.max(1, Math.round(ink.rows * scale))), 0, 0, cv.INTER_AREA);
@@ -130,9 +141,12 @@ export function traceWires(ink: Mat, boxes: Rect[], thickness: number): WireGrap
     // Bridge the small gaps of a hand-drawn wire, and tell the pieces of ink that are joined up apart.
     const gap = odd(Math.max(3, WIRE_CLOSE_STROKES * stroke));
     const kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(gap, gap), new cv.Point(-1, -1));
+    mats.push(kernel);
     const closed = new cv.Mat();
+    mats.push(closed);
     cv.morphologyEx(work, closed, cv.MORPH_CLOSE, kernel, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
     const labels = new cv.Mat();
+    mats.push(labels);
     const count = (cv.connectedComponents as (...args: unknown[]) => number)(closed, labels, 8, cv.CV_32S);
     const label = labels.data32S;
     const minX = new Int32Array(count).fill(width);
@@ -374,8 +388,11 @@ export function traceWires(ink: Mat, boxes: Rect[], thickness: number): WireGrap
         for (const i of contactClusters[c]) {
             if (kind[c] === "node") {
                 const arm = [...touching[c]].find((b) => !removed.has(b));
-                if (arm !== undefined) put(arm, { contact: i }, attached[i]);
-                put(arm ?? 0, { node: nodeIndex.get(c)! }, clusters[c].y * width + clusters[c].x);
+                // With no wire arm to hang them on, neither the contact nor the junction is placed on some other wire.
+                if (arm !== undefined) {
+                    put(arm, { contact: i }, attached[i]);
+                    put(arm, { node: nodeIndex.get(c)! }, clusters[c].y * width + clusters[c].x);
+                }
             } else {
                 const arm = [...touching[c]].find((b) => !removed.has(b));
                 if (arm !== undefined) put(arm, { contact: i }, attached[i]);
@@ -457,9 +474,5 @@ export function traceWires(ink: Mat, boxes: Rect[], thickness: number): WireGrap
     const fix = (end: WireEnd): WireEnd => ("node" in end ? { node: renumber.get(end.node)! } : end);
     const finalLinks = links.filter(([a, b]) => !same(a, b)).map(([a, b]): [WireEnd, WireEnd] => [fix(a), fix(b)]);
 
-    work.delete();
-    kernel.delete();
-    closed.delete();
-    labels.delete();
     return { contacts, nodes: keptNodes, links: finalLinks };
 }

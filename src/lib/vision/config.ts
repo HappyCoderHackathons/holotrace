@@ -209,6 +209,8 @@ export const ORIENTATION_MIN_SCORE = 0.5;
 
 export const DOWNLOAD_JSON_NAME = "recognition.json";
 export const DOWNLOAD_IMAGE_NAME = "captured-circuit.png";
+// What the dev page also saves: the scale the capture was scanned at (see detectScaleFor), which the image alone cannot give.
+export const DOWNLOAD_META_NAME = "captured-circuit.meta.json";
 
 // ---- Preview colours ----
 

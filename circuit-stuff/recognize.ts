@@ -11,6 +11,7 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { reconcile } from "../src/lib/vision/reconcile";
+import { tightenRegions } from "../src/lib/vision/sweep";
 import { fail, parseArguments } from "./lib/arguments";
 import { makeDiagram, printDiagram, saveDiagram } from "./lib/diagram";
 import { loadInk } from "./lib/ink";
@@ -73,7 +74,10 @@ for (const pair of pairs) {
         continue;
     }
     printResult(sent, outcome.result, outcome.seconds);
-    const merged = sweep !== null || options.diagram ? reconcile(sweep?.tighten(sent.request.regions) ?? sent.request.regions, outcome.result.regions) : null;
+    // Sweep windows are always tightened to their ink before merging, as the app does, with or without --sweep (a request
+    // saved from an earlier --sweep run carries its windows).
+    const regions = sweep?.tighten(sent.request.regions) ?? (ink !== null && "ink" in ink ? tightenRegions(ink.ink, sent.request.regions) : sent.request.regions);
+    const merged = sweep !== null || options.diagram ? reconcile(regions, outcome.result.regions) : null;
     if (merged !== null && sweep !== null) printMerged(outcome.result, merged, sweep.note);
 
     let diagram = null;

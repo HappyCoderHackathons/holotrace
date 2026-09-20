@@ -2,7 +2,7 @@
 // editor's types, unlike the rest of this folder.
 //
 // A connection's routing hints hold the corners the user pulled the wire through, as absolute canvas points written
-// "x,y". Empty hints mean the editor routes the wire itself.
+// "x,y". Empty hints mean the editor routes the wire itself. The hint "dashed" marks a dashed wire.
 
 import { COMPONENT_DISPLAY_NAME, defaultPins } from '../componentLibrary';
 import { createId } from '../id';
@@ -11,6 +11,8 @@ import { DIAGRAM_VERSION, type Diagram, type DiagramConnection, type DiagramPart
 import { NODE_TYPE, partByType } from './parts';
 
 const PREFIX = 'holotrace-';
+/** A corner hint: two plain numbers, "12,-40.5". */
+const COORDINATES = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/;
 const COLOURS: Record<string, string> = { green: '#22c55e', red: '#dc2626', black: '#111827' };
 
 const isType = (type: string): type is ComponentType => type.startsWith(PREFIX) && type !== NODE_TYPE && partByType(type) !== undefined;
@@ -64,15 +66,27 @@ export function diagramToCircuit(diagram: Diagram): Pick<CircuitState, 'componen
 		return componentId ? { componentId, pinId } : null;
 	};
 	const wires: Wire[] = [];
+	const seenWires = new Set<string>();
 	for (const [a, b, colour, hints] of diagram.connections) {
 		const from = endOf(a);
 		const to = endOf(b);
-		if (!from || !to) continue;
+		if (!from || !to || a === b) continue;
+		// The same two ends twice, in either order, are one wire.
+		const pair = [a, b].sort().join(' ');
+		if (seenWires.has(pair)) continue;
+		seenWires.add(pair);
 		const waypoints = hints
+			.filter((hint) => COORDINATES.test(hint))
 			.map((hint) => hint.split(',').map(Number))
-			.filter((p) => p.length === 2 && p.every(Number.isFinite))
 			.map(([x, y]) => ({ x, y }));
-		wires.push({ id: createId(), from, to, color: colourFor(colour), style: 'solid', ...(waypoints.length ? { waypoints } : {}) });
+		wires.push({
+			id: createId(),
+			from,
+			to,
+			color: colourFor(colour),
+			style: hints.includes('dashed') ? 'dashed' : 'solid',
+			...(waypoints.length ? { waypoints } : {})
+		});
 	}
 	return { components, wires, nodes };
 }
@@ -81,8 +95,9 @@ export function diagramToCircuit(diagram: Diagram): Pick<CircuitState, 'componen
 export function circuitToDiagram(state: Pick<CircuitState, 'components' | 'wires' | 'nodes'>): Diagram {
 	const used = new Set<string>();
 	const unique = (wanted: string) => {
-		let id = wanted.trim().replace(/:/g, '-') || 'X';
-		for (let n = 2; used.has(id); n++) id = `${wanted}_${n}`;
+		const base = wanted.trim().replace(/:/g, '-') || 'X';
+		let id = base;
+		for (let n = 2; used.has(id); n++) id = `${base}_${n}`;
 		used.add(id);
 		return id;
 	};
@@ -119,7 +134,8 @@ export function circuitToDiagram(state: Pick<CircuitState, 'components' | 'wires
 		const a = endpoint(wire.from);
 		const b = endpoint(wire.to);
 		if (a === null || b === null) continue;
-		connections.push([a, b, nameFor(wire.color), (wire.waypoints ?? []).map((p) => `${Math.round(p.x)},${Math.round(p.y)}`)]);
+		const hints = (wire.waypoints ?? []).map((p) => `${Math.round(p.x)},${Math.round(p.y)}`);
+		connections.push([a, b, nameFor(wire.color), wire.style === 'dashed' ? ['dashed', ...hints] : hints]);
 	}
 	return { version: DIAGRAM_VERSION, author: 'holotrace', editor: 'holotrace', parts, connections, dependencies: {} };
 }

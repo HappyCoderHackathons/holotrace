@@ -56,6 +56,23 @@ const attaches = (a: Corners, b: Corners) => iou(a, b) >= MERGE_ATTACH_IOU || ce
 // The numbers reconcile goes by; the defaults are in config.ts. Passing others is for trying values out.
 export type MergeOptions = { minConfidence: number; minSupport: number; supportIou: number };
 
+// With no model to say what a box is, the first pass's unsure boxes are kept too, as generic parts, so a person can
+// name or delete them rather than lose them. `found` is what reconcile returned for an empty answer.
+export function withUnsureKept(found: { components: Component[]; dropped: ProposedRegion[] }): Component[] {
+    return [
+        ...found.components,
+        ...found.dropped.map((region) => ({
+            box: region.box,
+            label: region.local_label ?? "part",
+            confidence: region.local_confidence ?? 0,
+            source: "kept" as const,
+            regionId: region.id,
+            localLabel: region.local_label,
+            modelLabel: null,
+        })),
+    ];
+}
+
 export function reconcile(
     regions: ProposedRegion[],
     judgements: Judgement[],

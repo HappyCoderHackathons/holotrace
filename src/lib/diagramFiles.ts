@@ -12,7 +12,8 @@ export function downloadDiagram() {
 	link.href = url;
 	link.download = 'circuit.diagram.json';
 	link.click();
-	URL.revokeObjectURL(url);
+	// Not at once: some webviews start the download after the click returns, and would find the link gone.
+	setTimeout(() => URL.revokeObjectURL(url), 10_000);
 	fileNotice.set({ kind: 'info', text: 'Saved circuit.diagram.json' });
 }
 

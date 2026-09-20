@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Search, SearchX } from 'lucide-svelte';
-	import { addComponent } from '$lib/stores/circuit';
+	import { get } from 'svelte/store';
+	import { addComponent, viewCentre } from '$lib/stores/circuit';
 	import { PALETTE, type PaletteItem } from '$lib/componentLibrary';
 	import type { ComponentType } from '$lib/types';
 	import ComponentGlyph from './ComponentGlyph.svelte';
@@ -34,7 +35,8 @@
 
 	function place(type: ComponentType) {
 		// Scatter slightly so repeated taps do not stack components exactly.
-		addComponent(type, 460 + Math.random() * 40, 260 + Math.random() * 40);
+		const centre = get(viewCentre);
+		addComponent(type, centre.x + (Math.random() - 0.5) * 40, centre.y + (Math.random() - 0.5) * 40);
 		onPlaced();
 	}
 </script>

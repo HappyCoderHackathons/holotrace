@@ -9,12 +9,14 @@ const NO_MODEL = new Set(['and', 'or', 'nand', 'nor', 'xor', 'not', 'generic', '
 
 export const switchStates = writable<Record<string, boolean>>({});
 
-function parseOhms(value?: string): number {
-	if (!value) return 0;
-	const match = value.match(/([\d.]+)\s*(k|K)?/);
-	if (!match) return 0;
+/** Ohms from text like "220Ω", "4.7k" or "1M", or null when there is no number (0 is a real value). */
+function parseOhms(value?: string): number | null {
+	if (!value) return null;
+	const match = value.match(/([\d.]+)\s*([kKM])?/);
+	if (!match) return null;
 	const n = parseFloat(match[1]);
-	return match[2] ? n * 1000 : n;
+	if (!Number.isFinite(n)) return null;
+	return match[2] === 'M' ? n * 1_000_000 : match[2] ? n * 1000 : n;
 }
 
 function parseVolts(value?: string): number {
@@ -112,8 +114,8 @@ function computeSimulation(components: CircuitComponent[], wires: Wire[], switch
 	const ledsOnPath: string[] = [];
 	for (const c of components) {
 		if (!pathComponentIds.has(c.id)) continue;
-		if (c.type === 'resistor') totalResistance += parseOhms(c.value) || 220;
-		if (c.type === 'potentiometer') totalResistance += (parseOhms(c.value) || 10000) / 2;
+		if (c.type === 'resistor') totalResistance += parseOhms(c.value) ?? 220;
+		if (c.type === 'potentiometer') totalResistance += (parseOhms(c.value) ?? 10000) / 2;
 		if (c.type === 'led' || c.type === 'lamp') {
 			ledDrop += 2; // typical red LED forward voltage
 			ledsOnPath.push(c.id);

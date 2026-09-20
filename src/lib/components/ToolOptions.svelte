@@ -45,46 +45,6 @@
 
 <div class="space-y-4" class:space-y-3={!touch}>
 	<div class="space-y-1.5">
-		<span class="panel-label">Tool</span>
-		<div class="flex gap-1.5">
-			<button
-				class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors"
-				class:py-2.5={touch}
-				class:py-1.5={!touch}
-				class:bg-accent={$editTool === 'select'}
-				class:border-accent={$editTool === 'select'}
-				class:text-white={$editTool === 'select'}
-				class:border-chrome-600={$editTool !== 'select'}
-				class:text-chrome-200={$editTool !== 'select'}
-				aria-pressed={$editTool === 'select'}
-				onclick={() => editTool.set('select')}
-			>
-				<MousePointer2 size={15} />
-				Select
-			</button>
-			<button
-				class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors disabled:opacity-40"
-				class:py-2.5={touch}
-				class:py-1.5={!touch}
-				class:bg-accent={$editTool === 'wire'}
-				class:border-accent={$editTool === 'wire'}
-				class:text-white={$editTool === 'wire'}
-				class:border-chrome-600={$editTool !== 'wire'}
-				class:text-chrome-200={$editTool !== 'wire'}
-				disabled={!$editMode}
-				aria-pressed={$editTool === 'wire'}
-				onclick={() => editTool.set('wire')}
-			>
-				<Cable size={15} />
-				Wire
-			</button>
-		</div>
-		{#if !$editMode}
-			<p class="text-[11px] text-chrome-400">Switch to Edit mode to draw wires.</p>
-		{/if}
-	</div>
-
-	<div class="space-y-1.5">
 		<span class="panel-label">
 			Wire colour{$selectedWireIds.size > 0 ? ' — applies to selection' : ''}
 		</span>

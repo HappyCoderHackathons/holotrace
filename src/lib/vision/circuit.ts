@@ -7,7 +7,6 @@ import {
     BLOB_KERNELS_STILL,
     CAPTURE_PADDING,
     CENTRE_PREFERENCE,
-    DETECT_WIDTH,
     EDGE_MARGIN,
     LIVE_INK_ATTEMPTS,
     MAX_CIRCUIT_FRACTION,
@@ -15,7 +14,7 @@ import {
     MIN_HOLE_FRACTION,
 } from "./config";
 import type { Rect } from "./boxes";
-import { state } from "./state";
+import { detectScaleFor, state } from "./state";
 
 export type FoundCircuit = {
     box: Rect;
@@ -134,7 +133,7 @@ export function cropToCircuit(full: Mat, box: Rect, mask: Mat): Mat {
 // view (the caller then uses the photo as it is). Sets state.detectScale from the photo's width, as the live stage
 // does, and state.capturedMask to the circuit's blob. The caller owns the returned Mat.
 export function locateCircuit(full: Mat): Mat | null {
-    state.detectScale = Math.max(1, full.cols / DETECT_WIDTH);
+    state.detectScale = detectScaleFor(full.cols);
     const small = new cv.Mat();
     cv.resize(full, small, new cv.Size(Math.round(full.cols / state.detectScale), Math.round(full.rows / state.detectScale)), 0, 0, cv.INTER_AREA);
     const gray = new cv.Mat();
@@ -143,10 +142,18 @@ export function locateCircuit(full: Mat): Mat | null {
     cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
     const found = findCircuitInGray(blurred, small, BLOB_KERNELS_STILL);
     let crop: Mat | null = null;
-    if (found !== null && found.mask !== null) crop = cropToCircuit(full, found.box, found.mask);
-    found?.mask?.delete();
-    blurred.delete();
-    gray.delete();
-    small.delete();
+    try {
+        if (found !== null && found.mask !== null) crop = cropToCircuit(full, found.box, found.mask);
+        else {
+            // No circuit: the whole photo is scanned, so no mask from an earlier capture may linger.
+            state.capturedMask?.delete();
+            state.capturedMask = null;
+        }
+    } finally {
+        found?.mask?.delete();
+        blurred.delete();
+        gray.delete();
+        small.delete();
+    }
     return crop;
 }

@@ -1,7 +1,7 @@
 // The live stage: camera frames in, and a screenshot of the circuit out once it holds still.
 
 import cv from "../../src/lib/vision/cv";
-import { CAPTURE_CANVAS_ID, HOLD_MS, HOLD_OPEN_MS } from "../../src/lib/vision/config";
+import { BLOB_KERNELS_STILL, CAPTURE_CANVAS_ID, HOLD_MS, HOLD_OPEN_MS } from "../../src/lib/vision/config";
 import { state } from "../../src/lib/vision/state";
 import { captureCircuit, hold, trackCircuit } from "../vision/capture";
 import { findCircuitInGray } from "../../src/lib/vision/circuit";
@@ -16,7 +16,7 @@ export const liveSteps: Step[] = [
         name: "Circuit detected",
         apply: (i, o, frame) => {
             frame.copyTo(o);
-            const found = findCircuitInGray(i, frame);
+            const found = findCircuitInGray(i, frame, BLOB_KERNELS_STILL);
             // A closed loop is taken after HOLD_MS, any other circuit after the longer HOLD_OPEN_MS.
             const fire = trackCircuit(found?.box ?? null, performance.now(), found?.closed ? HOLD_MS : HOLD_OPEN_MS);
             if (found === null) return;

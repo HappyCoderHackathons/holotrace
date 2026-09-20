@@ -5,7 +5,7 @@
 	import { loadDetectedCircuit } from '$lib/stores/circuit';
 	import { isCompact } from '$lib/stores/ui';
 	import { hasVideoInput } from '$lib/camera';
-	import type { OpenCvRecognitionInput } from '$lib/recognition';
+	import type { PreparedScan } from '$lib/opencvRecognition';
 	import CameraCapture from './CameraCapture.svelte';
 	import DetectionReview from './DetectionReview.svelte';
 
@@ -27,7 +27,7 @@
 	 * split so its proposals can be inspected before anything leaves the
 	 * device: a bad photo is cheaper to spot here than after a round trip.
 	 */
-	let prepared = $state<OpenCvRecognitionInput | null>(null);
+	let prepared = $state<PreparedScan | null>(null);
 	let sourceDataUrl = $state<string | null>(null);
 	let sending = $state(false);
 
@@ -80,6 +80,8 @@
 				}
 			});
 			discardPrepared();
+			// close() refuses while sending, so this is over first.
+			sending = false;
 			close();
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not build a circuit from the scan.';
@@ -109,6 +111,7 @@
 				}
 			});
 			discardPrepared();
+			sending = false;
 			close();
 		} catch (cause) {
 			/*

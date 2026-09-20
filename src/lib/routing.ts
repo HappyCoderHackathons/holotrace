@@ -9,7 +9,10 @@ import type { Point } from './geometry';
 /** How far a wire runs straight out of a pin before it may turn. */
 export const STUB = 16;
 
-const same = (a: Point, b: Point) => Math.abs(a.x - b.x) < 0.01 && Math.abs(a.y - b.y) < 0.01;
+/** Points closer than this on an axis count as level: parts sit on fractions of a unit, and a hair's width is not a corner. */
+const LEVEL = 0.5;
+const level = (a: number, b: number) => Math.abs(a - b) < LEVEL;
+const same = (a: Point, b: Point) => level(a.x, b.x) && level(a.y, b.y);
 const dot = (a: Point, b: Point) => a.x * b.x + a.y * b.y;
 const step = (from: Point, to: Point): Point => ({ x: Math.sign(to.x - from.x), y: Math.sign(to.y - from.y) });
 
@@ -19,7 +22,7 @@ const step = (from: Point, to: Point): Point => ({ x: Math.sign(to.x - from.x), 
  * (`arriving`, the way the last stub faces).
  */
 function elbow(a: Point, b: Point, leaving: Point | null, arriving: Point | null): Point[] {
-	if (a.x === b.x || a.y === b.y) return [];
+	if (level(a.x, b.x) || level(a.y, b.y)) return [];
 	const options: Point[] = [
 		{ x: b.x, y: a.y },
 		{ x: a.x, y: b.y }
@@ -42,7 +45,7 @@ function tidy(points: Point[]): Point[] {
 		if (i === 0 || i === distinct.length - 1) return true;
 		const a = distinct[i - 1];
 		const b = distinct[i + 1];
-		return !((a.x === p.x && p.x === b.x) || (a.y === p.y && p.y === b.y));
+		return !((level(a.x, p.x) && level(p.x, b.x)) || (level(a.y, p.y) && level(p.y, b.y)));
 	});
 }
 
@@ -96,6 +99,43 @@ export function collapseRoute(points: Point[]): Point[] {
 		}
 	}
 	return path;
+}
+
+/** The points where the router ends the stubs out of the pins (none for a junction end). */
+export function stubPoints(
+	from: { at: Point; facing: Point | null },
+	to: { at: Point; facing: Point | null }
+): Point[] {
+	return [from, to].flatMap((end) => (end.facing ? [{ x: end.at.x + end.facing.x * STUB, y: end.at.y + end.facing.y * STUB }] : []));
+}
+
+/** Whether two points are the same, give or take a hair. */
+export const samePoint = same;
+
+/**
+ * The corners of a route that belong to the wire (the ones a person pulled it through), not the ones the router adds
+ * itself (the ends, and the short stub out of a pin). `at[k]` is where corner k sits in `route`. Setting a wire's waypoints
+ * to `corners` reproduces the route, and the wire still follows its parts when they move.
+ */
+export function storedCorners(
+	route: Point[],
+	from: { at: Point; facing: Point | null },
+	to: { at: Point; facing: Point | null }
+): { corners: Point[]; at: number[] } {
+	const stubs = stubPoints(from, to);
+	const corners: Point[] = [];
+	const at: number[] = [];
+	for (let i = 1; i < route.length - 1; i++) {
+		if (stubs.some((stub) => same(stub, route[i]))) continue;
+		corners.push({ x: route[i].x, y: route[i].y });
+		at.push(i);
+	}
+	return { corners, at };
+}
+
+/** Where a new corner on segment `segment` of a route goes among the stored corners. */
+export function insertIndex(at: number[], segment: number): number {
+	return at.filter((index) => index <= segment).length;
 }
 
 /** The path as SVG `d`. */

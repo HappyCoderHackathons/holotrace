@@ -23,6 +23,7 @@
 		onWirePointerUp?: (event: PointerEvent, wireId: string) => void;
 		onNodePointerDown?: (event: PointerEvent, nodeId: string) => void;
 		onNodePointerUp?: (event: PointerEvent, nodeId: string) => void;
+		onSelectNode?: (id: string) => void;
 	}
 
 	let {
@@ -42,7 +43,8 @@
 		onWirePointerDown = () => {},
 		onWirePointerUp = () => {},
 		onNodePointerDown = () => {},
-		onNodePointerUp = () => {}
+		onNodePointerUp = () => {},
+		onSelectNode = () => {}
 	}: Props = $props();
 
 	function pathFor(wire: Wire): string {
@@ -199,6 +201,12 @@
 			aria-label={`Junction, ${wiresAt(node.id)} wires`}
 			onpointerdown={(e) => onNodePointerDown(e, node.id)}
 			onpointerup={(e) => onNodePointerUp(e, node.id)}
+			onkeydown={(e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					onSelectNode(node.id);
+				}
+			}}
 		/>
 	{/each}
 </g>
