@@ -1,6 +1,6 @@
 import { auth } from "./src/auth";
 import { authorizeRequest } from "./src/authorize";
-import { getServerPort, validateServerConfiguration } from "./src/config";
+import { getServerHost, getServerPort, validateServerConfiguration } from "./src/config";
 import { addAuthCorsHeaders, authPreflightResponse } from "./src/cors";
 
 validateServerConfiguration();
@@ -8,6 +8,7 @@ validateServerConfiguration();
 const port = getServerPort();
 
 const server = Bun.serve({
+  hostname: getServerHost(),
   port,
   async fetch(request) {
     const url = new URL(request.url);
