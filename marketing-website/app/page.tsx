@@ -28,6 +28,41 @@ const features = [
   { icon: Zap, title: 'See the circuit respond', description: 'Inspect connections and simple circuit behavior without redrawing the whole diagram.' },
 ];
 
+const architectureStages = [
+  {
+    number: '01',
+    label: 'ON DEVICE',
+    title: 'OpenCV prepares the page',
+    description: 'Crop, perspective, contrast, and denoising run locally. The same pass proposes likely symbol regions.',
+    detail: 'IMAGE + REGION PROPOSALS',
+    icon: Camera,
+  },
+  {
+    number: '02',
+    label: 'FAST PATH',
+    title: 'A compact classifier reads each crop',
+    description: 'ResNet Tiny labels proposed regions and rejects false proposals with a dedicated background class.',
+    detail: '2.8M PARAMETERS · ~11 MB',
+    icon: ScanLine,
+  },
+  {
+    number: '03',
+    label: 'RECOVERY PATH',
+    title: 'A full-page detector catches misses',
+    description: 'Faster R-CNN with a MobileNetV3 FPN backbone searches the complete page for symbols the local pass overlooked.',
+    detail: '19.2M PARAMETERS · ~77 MB',
+    icon: Sparkles,
+  },
+  {
+    number: '04',
+    label: 'IN INTEGRATION',
+    title: 'Evidence becomes a circuit model',
+    description: 'The normalizer combines boxes, confidence, and model versions with wire geometry to build editable Circuit IR.',
+    detail: 'REVIEWABLE · VERSIONED · RENDERER-INDEPENDENT',
+    icon: Waypoints,
+  },
+];
+
 function BrandMark() {
   return <span className="brand-mark" aria-hidden="true"><span /><span /><span /></span>;
 }
@@ -92,7 +127,7 @@ export default function Home() {
     <main>
       <nav className="site-nav" aria-label="Primary navigation">
         <a className="wordmark" href="#top" aria-label="Holotrace home"><BrandMark /><span>HOLOTRACE</span></a>
-        <div className="nav-links"><a href="#how-it-works">How it works</a><a href="#features">Features</a><a href="#download">Download</a></div>
+        <div className="nav-links"><a href="#how-it-works">How it works</a><a href="#model">Model</a><a href="#features">Features</a><a href="#download">Download</a></div>
         <a className="github-link" href={githubUrl} target="_blank" rel="noreferrer"><Code2 size={17} /><span>GitHub</span></a>
       </nav>
 
@@ -133,6 +168,43 @@ export default function Home() {
         <div className="trust-icon"><ScanLine size={28} /></div>
         <p><span>Review comes first.</span> See what Holotrace found before the image continues to deeper recognition.</p>
         <span className="trust-meta">ON-DEVICE FIRST PASS</span>
+      </section>
+
+      <section className="architecture section" id="model">
+        <div className="architecture-intro">
+          <div>
+            <span className="eyebrow">MODEL ARCHITECTURE</span>
+            <h2>Two views of the page.<br />One accountable result.</h2>
+          </div>
+          <div className="architecture-summary">
+            <p>A fast classifier examines the regions found on your device while a second model scans the full page. Keeping both paths preserves speed without depending on perfect first-pass detection.</p>
+            <span><i /> CURRENT RECOGNITION STACK</span>
+          </div>
+        </div>
+
+        <div className="architecture-flow">
+          {architectureStages.map((stage, index) => {
+            const Icon = stage.icon;
+            return (
+              <article className="architecture-stage" key={stage.number}>
+                <div className="architecture-stage-top">
+                  <span className="stage-number">{stage.number}</span>
+                  <span className="stage-icon"><Icon size={19} /></span>
+                </div>
+                <span className="stage-label">{stage.label}</span>
+                <h3>{stage.title}</h3>
+                <p>{stage.description}</p>
+                <span className="stage-detail">{stage.detail}</span>
+                {index < architectureStages.length - 1 && <span className="flow-arrow" aria-hidden="true"><ArrowRight size={16} /></span>}
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="architecture-note">
+          <Code2 size={19} />
+          <p><strong>Why keep the raw result?</strong> Each prediction retains its source location, confidence, alternatives, and model version so uncertain reads can be explained and corrected before simulation.</p>
+        </div>
       </section>
 
       <section className="features section" id="features">
