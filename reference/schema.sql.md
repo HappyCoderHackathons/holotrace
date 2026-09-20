@@ -28,6 +28,10 @@ PostgreSQL `auth` schema and its user ID is the stable authenticated subject. In
 `auth_subject` links application-owned records to that identifier without copying credentials into application
 tables. The client must access these records through the Holotrace API rather than connecting directly to PostgreSQL.
 
+The current simplified implementation predates this full schema. It stores saved circuit JSON in `public.projects`
+and links `public.projects.owner` directly to `auth.user.id`; authenticated CRUD is exposed at `/api/circuits`. This
+is an interim bridge for user-owned saves, not an implementation of the workspace and immutable-version tables below.
+
 ```sql
 CREATE TABLE holotrace.app_user (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),

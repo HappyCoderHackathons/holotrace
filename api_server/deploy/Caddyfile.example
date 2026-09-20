@@ -9,6 +9,11 @@ https://api.ifyousmellityouwilleventuallydie.tech:8000 {
         reverse_proxy 127.0.0.1:8002
     }
 
+    @saved_circuits path /api/circuits /api/circuits/*
+    handle @saved_circuits {
+        reverse_proxy 127.0.0.1:8002
+    }
+
     handle {
         reverse_proxy 127.0.0.1:8001
     }

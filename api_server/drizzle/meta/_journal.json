@@ -15,6 +15,13 @@
       "when": 1789892909789,
       "tag": "0001_cooing_magik",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789910198352,
+      "tag": "0002_goofy_warbound",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { Cpu, Share2 } from 'lucide-svelte';
+	import { Cpu, Save, Share2 } from 'lucide-svelte';
 	import { viewMode } from '$lib/stores/circuit';
 	import type { ViewMode } from '$lib/types';
 	import { authClient } from '$lib/authClient';
+	import { clearSavedCircuitSelection, saveCurrentCircuit, saveError, saveStatus } from '$lib/stores/savedCircuits';
 
     interface Props {
         location: string;
@@ -23,8 +24,23 @@
 
     async function logout() {
         await authClient.signOut();
+		authClient.hydrateSession(null);
+		clearSavedCircuitSelection();
         location = "/";
     }
+
+	async function save() {
+		if (!$session.data) {
+			location = '/login';
+			return;
+		}
+
+		try {
+			await saveCurrentCircuit();
+		} catch {
+			// The save store exposes the error state for the button label.
+		}
+	}
 </script>
 
 <!--
@@ -60,6 +76,15 @@
 	</nav>
 
 	<div class="flex items-center justify-end gap-2">
+		<button
+			class="flex items-center gap-1.5 rounded-lg border border-chrome-600 px-3.5 py-2 text-sm font-medium text-chrome-200 transition-colors hover:bg-chrome-700 disabled:opacity-50"
+			disabled={$saveStatus === 'saving'}
+			title={$saveError ?? 'Save the current circuit'}
+			onclick={save}
+		>
+			<Save size={14} />
+			{$saveStatus === 'saving' ? 'Saving…' : $saveStatus === 'saved' ? 'Saved' : $saveStatus === 'error' ? 'Retry save' : 'Save'}
+		</button>
 		{#if $session.data}
 			<span class="hidden text-sm text-chrome-300 lg:inline">{$session.data.user.name}</span>
 			<button

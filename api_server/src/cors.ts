@@ -1,6 +1,6 @@
 import { getTrustedOrigins } from "./config";
 
-const ALLOWED_METHODS = "GET, POST, OPTIONS";
+const ALLOWED_METHODS = "GET, POST, PUT, DELETE, OPTIONS";
 const ALLOWED_HEADERS = "Authorization, Content-Type";
 
 function allowedOrigin(request: Request): string | null {
@@ -13,7 +13,11 @@ function allowedOrigin(request: Request): string | null {
   return origin;
 }
 
-export function authPreflightResponse(request: Request): Response {
+export function isRequestOriginAllowed(request: Request): boolean {
+  return !request.headers.has("origin") || allowedOrigin(request) !== null;
+}
+
+export function apiPreflightResponse(request: Request): Response {
   const origin = allowedOrigin(request);
 
   if (!origin) {
@@ -33,7 +37,7 @@ export function authPreflightResponse(request: Request): Response {
   });
 }
 
-export function addAuthCorsHeaders(response: Response, request: Request): Response {
+export function addApiCorsHeaders(response: Response, request: Request): Response {
   const origin = allowedOrigin(request);
 
   if (!origin) {
