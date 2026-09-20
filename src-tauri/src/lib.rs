@@ -6,6 +6,27 @@ use serde::{Deserialize, Serialize};
 
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 
+fn load_dotenv() {
+    if dotenvy::dotenv().is_ok() {
+        return;
+    }
+
+    let Ok(executable) = env::current_exe() else {
+        return;
+    };
+    let Some(executable_dir) = executable.parent() else {
+        return;
+    };
+
+    for directory in executable_dir.ancestors() {
+        let candidate = directory.join(".env");
+        if candidate.is_file() {
+            let _ = dotenvy::from_path(candidate);
+            return;
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct OpenCvRecognitionInput {
@@ -83,10 +104,12 @@ async fn recognize_circuit(
     input: OpenCvRecognitionInput,
 ) -> Result<serde_json::Value, ModelApiError> {
     let base_url = env::var("HOLOTRACE_MODEL_API_URL").map_err(|_| {
-        ModelApiError::new("HOLOTRACE_MODEL_API_URL is not configured for the Tauri process.")
+        ModelApiError::new(
+            "HOLOTRACE_MODEL_API_URL is not configured in .env or the Tauri process.",
+        )
     })?;
     let api_key = env::var("HOLOTRACE_ML_API_KEY").map_err(|_| {
-        ModelApiError::new("HOLOTRACE_ML_API_KEY is not configured for the Tauri process.")
+        ModelApiError::new("HOLOTRACE_ML_API_KEY is not configured in .env or the Tauri process.")
     })?;
     let endpoint = Url::parse(&format!("{}/v0/recognize", base_url.trim_end_matches('/')))
         .map_err(|_| ModelApiError::new("HOLOTRACE_MODEL_API_URL is invalid."))?;
@@ -123,7 +146,6 @@ async fn recognize_circuit(
         .await
         .map_err(|_| ModelApiError::new("The model API returned invalid JSON."))
 }
-
 
 /// WebView2 denies `getUserMedia` by default and, unlike a browser, shows the
 /// user no prompt to override it — the request simply fails. Granting the
@@ -170,6 +192,8 @@ fn allow_camera_permission(window: &tauri::WebviewWindow) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    load_dotenv();
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![recognize_circuit])
         .setup(|app| {
