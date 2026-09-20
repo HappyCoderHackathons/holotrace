@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ImageUp, CheckCircle2, Camera } from 'lucide-svelte';
 	import { circuit } from '$lib/stores/circuit';
-	import { hasVideoInput } from '$lib/camera';
+	import { canOfferCapture } from '$lib/camera';
 
 	interface Props {
 		onUploadClick?: () => void;
@@ -12,7 +12,7 @@
 	/** Mirrors UploadModal: the affordance follows the camera, not the pointer. */
 	let cameraAvailable = $state(false);
 	$effect(() => {
-		hasVideoInput().then((available) => (cameraAvailable = available));
+		canOfferCapture().then((available) => (cameraAvailable = available));
 	});
 
 	const detection = $derived($circuit.detection);

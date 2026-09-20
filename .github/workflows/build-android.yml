@@ -76,6 +76,8 @@ jobs:
       - name: Build optimized APK
         env:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          HOLOTRACE_MODEL_API_URL: ${{ secrets.HOLOTRACE_MODEL_API_URL }}
+          HOLOTRACE_ML_API_KEY: ${{ secrets.HOLOTRACE_ML_API_KEY }}
         run: bun run android:build -- --apk
 
       - name: Verify and prepare public Android package
