@@ -25,26 +25,54 @@ export interface PreparedScan extends OpenCvRecognitionInput {
 	scan: ScanContext;
 }
 
+type OpenCvRuntime = typeof cv & {
+	calledRun?: boolean;
+	then?: (ready: () => void) => unknown;
+	onRuntimeInitialized?: () => void;
+};
+
+let openCvReady: Promise<void> | null = null;
+
 function waitForOpenCv(): Promise<void> {
+	if (openCvReady) return openCvReady;
+
 	try {
 		const probe = new cv.Mat();
 		probe.delete();
-		return Promise.resolve();
+		openCvReady = Promise.resolve();
 	} catch {
-		return new Promise((resolve, reject) => {
-			const runtime = cv as typeof cv & { onRuntimeInitialized?: () => void };
-			const previous = runtime.onRuntimeInitialized;
+		const runtime = cv as OpenCvRuntime;
+		openCvReady = new Promise((resolve, reject) => {
 			const timeout = window.setTimeout(
 				() => reject(new Error('OpenCV did not finish loading. Reload the app and try again.')),
 				15_000
 			);
-			runtime.onRuntimeInitialized = () => {
-				previous?.();
+			const ready = () => {
 				window.clearTimeout(timeout);
 				resolve();
 			};
+
+			/*
+			 * The Emscripten module is thenable and remembers whether its runtime
+			 * has already started. Using that hook avoids the first upload losing
+			 * the one-shot onRuntimeInitialized event during a cold dynamic import.
+			 */
+			if (runtime.calledRun) ready();
+			else if (runtime.then) runtime.then(ready);
+			else {
+				const previous = runtime.onRuntimeInitialized;
+				runtime.onRuntimeInitialized = () => {
+					previous?.();
+					ready();
+				};
+			}
+		});
+		openCvReady.catch(() => {
+			openCvReady = null;
 		});
 	}
+
+	return openCvReady;
 }
 
 function loadImage(dataUrl: string): Promise<HTMLImageElement> {
