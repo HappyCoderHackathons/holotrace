@@ -78,7 +78,16 @@ selected image
   -> circuit.detection.recognition
 ```
 
-Set the two runtime variables before starting Tauri so only Rust can read the bearer:
+For local development, put the two native-only values in the repository's `.env` file:
+
+```dotenv
+HOLOTRACE_MODEL_API_URL=https://api.ifyousmellityouwilleventuallydie.tech
+HOLOTRACE_ML_API_KEY=replace-with-the-runtime-secret
+```
+
+The Tauri process searches for `.env` from its working directory and, as a fallback, from the executable directory and its parents. Existing process environment variables take precedence over values in the file. The `.env` file is ignored by Git and must not be packaged with a distributed application.
+
+The values can also be set in the process environment before starting Tauri:
 
 ```sh
 HOLOTRACE_MODEL_API_URL="https://api.ifyousmellityouwilleventuallydie.tech" \
