@@ -5,7 +5,7 @@
 // correlation, so pen thickness and small wobbles do not matter much. The result is a label and a
 // confidence between 0 and 1; whether that is high enough to trust is left to the caller.
 
-import cv, { Mat } from "opencv-ts";
+import cv, { type Mat } from "opencv-ts";
 import { LABEL_MIN_CONFIDENCE, LABEL_MIN_GENERIC_CONFIDENCE, MATCH_BLUR_SIGMA, MATCH_SIZE, SIZE_MISMATCH } from "../config";
 import type { Rect } from "../geometry/boxes";
 import { isLead, SYMBOLS, type SymbolDrawing } from "./symbols";

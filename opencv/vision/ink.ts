@@ -1,6 +1,6 @@
 // Finding the ink on a captured still image.
 
-import cv, { Mat } from "opencv-ts";
+import cv, { type Mat } from "opencv-ts";
 import { INK_BLOCK_SIZE, INK_ELBOW, INK_OFFSET_MAX, INK_OFFSET_MIN, INK_OFFSET_STEP } from "../config";
 import { state } from "../state";
 
