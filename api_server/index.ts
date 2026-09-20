@@ -1,7 +1,8 @@
 import { auth } from "./src/auth";
 import { authorizeRequest } from "./src/authorize";
+import { handleCircuitRequest } from "./src/circuits";
 import { getServerHost, getServerPort, validateServerConfiguration } from "./src/config";
-import { addAuthCorsHeaders, authPreflightResponse } from "./src/cors";
+import { addApiCorsHeaders, apiPreflightResponse, isRequestOriginAllowed } from "./src/cors";
 
 validateServerConfiguration();
 
@@ -15,11 +16,24 @@ const server = Bun.serve({
 
     if (url.pathname.startsWith("/api/auth/")) {
       if (request.method === "OPTIONS") {
-        return authPreflightResponse(request);
+        return apiPreflightResponse(request);
       }
 
       const response = await auth.handler(request);
-      return addAuthCorsHeaders(response, request);
+      return addApiCorsHeaders(response, request);
+    }
+
+    if (url.pathname === "/api/circuits" || url.pathname.startsWith("/api/circuits/")) {
+      if (request.method === "OPTIONS") {
+        return apiPreflightResponse(request);
+      }
+
+      if (!isRequestOriginAllowed(request)) {
+        return Response.json({ error: "Origin is not allowed" }, { status: 403 });
+      }
+
+      const response = await handleCircuitRequest(request, url);
+      return addApiCorsHeaders(response, request);
     }
 
     if (url.pathname === "/internal/authorize" && request.method === "GET") {

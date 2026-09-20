@@ -1,7 +1,9 @@
 import { relations } from "drizzle-orm";
 import {
-    pgTable, serial, integer, varchar, timestamp, text
+    pgTable, serial, varchar, timestamp, text
 } from "drizzle-orm/pg-core";
+
+import { user as authUser } from "./auth-schema";
 
 export const users = pgTable("users", {
     id: serial("id").primaryKey(),
@@ -12,19 +14,16 @@ export const users = pgTable("users", {
 
 export const projects = pgTable("projects", {
     id: serial("id").primaryKey(),
-    owner: integer("owner").notNull().references(() => users.id), // serial isnt allowed here and its flipping stupid >:(
-    data: text("data").notNull().default(""), // json object string -> JSON.parse("{'name':'holotrace'}")
+    owner: text("owner").notNull().references(() => authUser.id, { onDelete: "cascade" }),
+    name: varchar("name", { length: 120 }).notNull().default("Untitled circuit"),
+    data: text("data").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     modifiedAt: timestamp("modifiedAt").defaultNow().notNull(),
 });
 
-export const usersRelations = relations(users, ({ many }) => ({
-    projects: many(projects),
-}));
-
 export const projectsRelations = relations(projects, ({ one }) => ({
-    owner: one(users, {
+    owner: one(authUser, {
         fields: [projects.owner],
-        references: [users.id],
+        references: [authUser.id],
     }),
 }));

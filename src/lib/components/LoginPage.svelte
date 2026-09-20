@@ -19,12 +19,21 @@
         isSubmitting = true;
 
         try {
-            const result = await authClient.signIn.username({ username, password });
+            const result = await authClient.signIn.username({ username: username.trim(), password });
 
             if (result.error) {
                 errorMessage = result.error.message ?? 'Unable to sign in.';
                 return;
             }
+
+            const verifiedSession = await authClient.getSession();
+
+            if (verifiedSession.error || !verifiedSession.data) {
+                errorMessage = 'Signed in, but the session could not be restored.';
+                return;
+            }
+
+            authClient.hydrateSession(verifiedSession.data);
 
             password = '';
             gotoHome();

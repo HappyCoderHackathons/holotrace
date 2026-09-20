@@ -21,7 +21,10 @@ Clients should access data through an authenticated API. Database credentials mu
 The current authentication API uses Better Auth with Drizzle and keeps its `user`, `account`, `session`, and
 `verification` records in a separate PostgreSQL `auth` schema. The Python model API remains a separate service and
 must not receive user passwords or database credentials. The simplified application `users` table currently remains
-unchanged; it is not the credential source for Better Auth.
+unchanged; it is not the credential source for Better Auth. Saved circuit JSON is currently stored in
+`public.projects`, whose text `owner` column references `auth.user.id`. The auth service exposes owner-scoped CRUD at
+`/api/circuits`; the client does not connect to PostgreSQL directly. This simplified record is an interim persistence
+surface and does not replace the versioned circuit model proposed below.
 
 ## Proposed data areas
 

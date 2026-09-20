@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { Cpu, Image, SlidersHorizontal, Play, Square, Undo2, Redo2, LogIn, LogOut } from 'lucide-svelte';
+	import { Cpu, Image, SlidersHorizontal, Play, Square, Undo2, Redo2, LogIn, LogOut, Save } from 'lucide-svelte';
 	import { viewMode, undo, redo, canUndo, canRedo } from '$lib/stores/circuit';
 	import { openSheet } from '$lib/stores/ui';
 	import { simulationRunning, startSimulation, stopSimulation } from '$lib/stores/simulation';
 	import { authClient } from '$lib/authClient';
+	import { clearSavedCircuitSelection, saveCurrentCircuit, saveError, saveStatus } from '$lib/stores/savedCircuits';
 
 	const onCanvas = $derived($viewMode === 'circuit');
 	const session = authClient.useSession();
@@ -12,11 +13,26 @@
 	async function toggleAuthentication() {
 		if ($session.data) {
 			await authClient.signOut();
+			authClient.hydrateSession(null);
+			clearSavedCircuitSelection();
 			location = '/';
 			return;
 		}
 
 		location = '/login';
+	}
+
+	async function save() {
+		if (!$session.data) {
+			location = '/login';
+			return;
+		}
+
+		try {
+			await saveCurrentCircuit();
+		} catch {
+			// The button's accessible label reports that the save should be retried.
+		}
 	}
 </script>
 
@@ -32,6 +48,15 @@
 	</div>
 
 	<div class="ml-auto flex items-center gap-0.5">
+		<button
+			class="chrome-icon-btn"
+			aria-label={$saveStatus === 'error' ? 'Retry saving circuit' : 'Save circuit'}
+			disabled={$saveStatus === 'saving'}
+			title={$saveError ?? 'Save the current circuit'}
+			onclick={save}
+		>
+			<Save size={18} />
+		</button>
 		<button
 			class="chrome-icon-btn"
 			aria-label={$session.data ? 'Log out' : 'Log in'}
