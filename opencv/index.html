@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>holotrace first pass</title>
+    <style>
+        body { margin: 0; padding: 16px; background: #111; color: #eee; font: 14px system-ui, sans-serif; }
+        #steps { display: flex; flex-wrap: wrap; gap: 12px; }
+        figure { margin: 0; }
+        figcaption { margin-bottom: 4px; }
+        button { margin: 0 8px 12px 0; padding: 6px 14px; font: inherit; }
+        details { margin-bottom: 12px; }
+        pre { max-height: 240px; overflow: auto; padding: 8px; background: #000; }
+        canvas { display: block; width: 320px; background: #000; }
+    </style>
+</head>
+<body>
+    <!-- camera source; hidden, OpenCV reads frames from it -->
+    <video id="camera" autoplay playsinline muted hidden></video>
+
+    <!-- enabled by main.ts once a circuit is captured; returns to the live camera -->
+    <button id="reset" disabled>Reset camera</button>
+    <!-- enabled once a capture has been processed; save recognition.json and the sharpened captured
+         circuit (captured-circuit.png) that its boxes are measured on -->
+    <button id="save-json" disabled>Download JSON</button>
+    <button id="save-image" disabled>Download image</button>
+
+    <!-- the JSON for the next stage, filled in by main.ts after each capture -->
+    <details id="recognition-panel" hidden open>
+        <summary>Recognition JSON</summary>
+        <pre id="recognition-json"></pre>
+    </details>
+
+    <!-- one preview per pipeline step, created by main.ts -->
+    <div id="steps"></div>
+
+    <script type="module" src="./main.ts"></script>
+</body>
+</html>
