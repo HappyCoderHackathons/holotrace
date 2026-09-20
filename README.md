@@ -13,6 +13,7 @@ Holotrace turns a photograph of a hand-drawn circuit into an interactive circuit
 | [`opencv/`](opencv/README.md) | A webcam dev page for that first pass. It pulls the code from `src/lib/vision`. |
 | [`classifier/`](classifier/README.md) | The PyTorch recognition models and the service that runs them. |
 | [`api_server/`](api_server/README.md) | The server side: the database schema and turning recognition results into a circuit. |
+| [`static/brand/`](static/brand) | The Holotrace "H" mark: the source SVGs every other logo is generated from. |
 | [`reference/`](reference/README.md) | Architecture and API documents. |
 | [`circuit-stuff/`](circuit-stuff/README.md) | Scripts for trying out the recognition service by hand. |
 
@@ -41,6 +42,21 @@ cargo build
 bun install
 bun run tauri dev
 ```
+
+## Brand assets
+
+Every logo is the same "H" mark. The SVGs in [`static/brand/`](static/brand) are the source: `holotrace-mark.svg` is the bare glyph (also inlined as `src/lib/components/BrandMark.svelte` for app chrome) and `holotrace-icon.svg` is the mark on its dark rounded square, used as the favicon for both the app and the marketing site.
+
+The raster assets are generated, not hand-edited. After changing the mark:
+
+```console
+# cwd is project root
+python scripts/generate_brand_assets.py
+bun run tauri icon src-tauri/icons/icon-source.png
+python scripts/generate_brand_assets.py
+```
+
+The second run is deliberate: `tauri icon` overwrites the Android adaptive-icon foregrounds with full-bleed images that the launcher mask crops, and the script restores versions that stay inside the safe zone. The script also writes the NSIS and WiX installer artwork in [`src-tauri/installer/`](src-tauri/installer), which is wired up in `tauri.conf.json`. It needs Pillow.
 
 ## Android development
 
