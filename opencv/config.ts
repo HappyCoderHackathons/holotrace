@@ -94,19 +94,30 @@ export const BODY_MIN_ASPECT = 0.62;
 // RING_MIN_STROKES across and passes the same size and aspect limits. This also finds small
 // switch loops.
 export const RING_CLOSE_STROKES = 1.5;
-export const RING_PIECE_STROKES = 4;
-export const RING_MIN_STROKES = 3;
+export const RING_PIECE_STROKES = 2;
+export const RING_MIN_STROKES = 2.2;
+// A ring no bigger than RING_SMALL_STROKES is a switch contact or a terminal, and its box grows by
+// RING_REACH_STROKES on every side to take in the arm and wire stubs that make it a switch.
+export const RING_SMALL_STROKES = 6;
+export const RING_REACH_STROKES = 5;
 export const MERGE_GAP_STROKES = 2;
 // Solids: ink closed by SOLID_CLOSE_STROKES and then opened by SOLID_OPEN_STROKES keeps only filled
-// blocks (single strokes and small dots vanish). One at least SOLID_MIN_STROKES across is a component.
-export const SOLID_CLOSE_STROKES = 2;
+// blocks (single strokes and small dots vanish); closing this wide also fuses a zigzag resistor or a
+// battery's parallel lines into one. One is a component if it is SOLID_MIN_STROKES to BODY_MAX_STROKES
+// across, at least SOLID_MIN_ASPECT square (a pair of wires fuses into a long thin band) and at least
+// SOLID_MIN_FILL of its box is real ink.
+export const SOLID_CLOSE_STROKES = 3;
 export const SOLID_OPEN_STROKES = 2;
 export const SOLID_MIN_STROKES = 6;
+export const SOLID_MIN_ASPECT = 0.25;
+export const SOLID_MIN_FILL = 0.2;
 // A box less than 1 / SCRAP_RATIO of the area of a box it touches is a scrap of that one's wiring.
 export const SCRAP_RATIO = 2.5;
 // A component is at most this fraction of the image's area, and gets this much room around its box, in strokes.
 export const COMPONENT_MAX_AREA_FRACTION = 0.25;
 export const COMPONENT_PAD_STROKES = 2;
+// A box within this many strokes of the crop's edge is dropped (see findComponents).
+export const EDGE_STROKES = 3;
 
 // ---- Naming the components (see vision/classify.ts and vision/symbols.ts) ----
 
@@ -119,11 +130,11 @@ export const MATCH_BLUR_SIGMA = 3;
 // A symbol's score is multiplied by this when the box is outside the size range that symbol is
 // drawn at (see SymbolDrawing.strokes).
 export const SIZE_MISMATCH = 0.6;
-// A component gets the best symbol's own name if it matches at least this well (0 to 1), and only its
-// coarser name (a gate is a "logic_gate") if it matches at least LABEL_MIN_GENERIC_CONFIDENCE. Below
+// A component gets the best symbol's own name if it matches at least this well (0 to 1), and only the
+// name of its group (a gate is a "logic_gate") if it matches at least LABEL_MIN_GROUP_CONFIDENCE. Below
 // that there is no good guess, and the JSON keeps local_label and local_confidence null.
 export const LABEL_MIN_CONFIDENCE = 0.55;
-export const LABEL_MIN_GENERIC_CONFIDENCE = 0.4;
+export const LABEL_MIN_GROUP_CONFIDENCE = 0.4;
 
 // ---- Preview colours ----
 
