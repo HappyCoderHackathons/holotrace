@@ -18,5 +18,12 @@ libwebkit2gtk-4.1-dev
 
 To start the develop app
 ```console
+# cwd is project root
+cd src-tauri
+cargo build
+```
+```console
+# cwd is project root
+bun install
 bun run tauri dev
 ```
