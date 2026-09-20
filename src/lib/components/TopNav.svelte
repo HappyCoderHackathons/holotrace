@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Cpu } from 'lucide-svelte';
+	import BrandMark from './BrandMark.svelte';
 	import FileActions from './FileActions.svelte';
 	import { viewMode } from '$lib/stores/circuit';
 	import type { ViewMode } from '$lib/types';
@@ -21,9 +21,7 @@
 	class="grid h-14 flex-shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-chrome-600 bg-chrome-900 px-4"
 >
 	<div class="flex items-center gap-2.5">
-		<div class="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white">
-			<Cpu size={18} strokeWidth={2.25} />
-		</div>
+		<BrandMark size={22} class="text-accent" />
 		<span class="text-[15px] font-semibold tracking-[-0.01em] text-chrome-100">Holotrace</span>
 	</div>
 
