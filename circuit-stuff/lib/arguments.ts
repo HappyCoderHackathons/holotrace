@@ -7,6 +7,9 @@ export type Options = {
     html: boolean;
     json: boolean;
     sweep: boolean;
+    diagram: boolean;
+    diagrams: string | null;
+    reuse: boolean;
     out: string | null;
     url: string | null;
     timeoutSeconds: number;
@@ -24,6 +27,11 @@ Options:
   --json          also write the raw response (and the merged components, with --sweep) per pair to the output folder
   --sweep         also send a grid of windows over the whole image, and merge what the model says about them
                   with the first pass's boxes (see src/lib/vision/reconcile.ts)
+  --diagram       also work out the wiring and write a diagram.json per pair (the final components and their
+                  connections, in the shape of Wokwi's diagram.json); PNG images only
+  --diagrams DIR  where diagrams go (default: circuit-stuff/diagrams, which git ignores)
+  --reuse         use the saved <name>.result.json in the output folder instead of calling the API, so a drawing is not
+                  sent again (needs an earlier run with --json, on the same image and options)
   --out DIR       output folder (default: circuit-stuff/results, which git ignores)
   --url URL       model API address (default: HOLOTRACE_MODEL_API_URL)
   --timeout SEC   give up on a request after this long (default ${DEFAULT_TIMEOUT_SECONDS})
@@ -41,7 +49,7 @@ export function fail(message: string): never {
 }
 
 export function parseArguments(argv: string[]): Options {
-    const options: Options = { paths: [], html: false, json: false, sweep: false, out: null, url: null, timeoutSeconds: DEFAULT_TIMEOUT_SECONDS };
+    const options: Options = { paths: [], html: false, json: false, sweep: false, diagram: false, diagrams: null, reuse: false, out: null, url: null, timeoutSeconds: DEFAULT_TIMEOUT_SECONDS };
     for (let n = 0; n < argv.length; n++) {
         const arg = argv[n];
         const value = () => {
@@ -55,6 +63,9 @@ export function parseArguments(argv: string[]): Options {
         } else if (arg === "--html") options.html = true;
         else if (arg === "--json") options.json = true;
         else if (arg === "--sweep") options.sweep = true;
+        else if (arg === "--diagram") options.diagram = true;
+        else if (arg === "--diagrams") options.diagrams = value();
+        else if (arg === "--reuse") options.reuse = true;
         else if (arg === "--out") options.out = value();
         else if (arg === "--url") options.url = value();
         else if (arg === "--timeout") options.timeoutSeconds = Number(value());
