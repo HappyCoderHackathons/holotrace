@@ -47,13 +47,10 @@ android {
             applicationIdSuffix = ".debug"
             manifestPlaceholders["usesCleartextTraffic"] = "true"
             isDebuggable = true
-            isJniDebuggable = true
+            // Keep Java/Kotlin debugging enabled without shipping hundreds of
+            // megabytes of native Rust symbols in the installable APK.
+            isJniDebuggable = false
             isMinifyEnabled = false
-            packaging {                jniLibs.keepDebugSymbols.add("*/arm64-v8a/*.so")
-                jniLibs.keepDebugSymbols.add("*/armeabi-v7a/*.so")
-                jniLibs.keepDebugSymbols.add("*/x86/*.so")
-                jniLibs.keepDebugSymbols.add("*/x86_64/*.so")
-            }
         }
         getByName("release") {
             if (keystorePropertiesFile.exists()) {
