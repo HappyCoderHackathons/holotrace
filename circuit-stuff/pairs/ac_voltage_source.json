@@ -1,0 +1,74 @@
+{
+  "schema_version": "recognition-v0",
+  "client_preprocess_version": "opencv-v1",
+  "image_width": 355,
+  "image_height": 274,
+  "regions": [
+    {
+      "id": "region-0",
+      "box": {
+        "x0": 281,
+        "y0": 110,
+        "x1": 329,
+        "y1": 163
+      },
+      "local_label": "ac_voltage_source",
+      "local_confidence": 0.78
+    },
+    {
+      "id": "region-1",
+      "box": {
+        "x0": 169,
+        "y0": 144,
+        "x1": 220,
+        "y1": 195
+      },
+      "local_label": "diode",
+      "local_confidence": 0.82
+    },
+    {
+      "id": "region-2",
+      "box": {
+        "x0": 93,
+        "y0": 96,
+        "x1": 142,
+        "y1": 144
+      },
+      "local_label": "diode",
+      "local_confidence": 0.64
+    },
+    {
+      "id": "region-3",
+      "box": {
+        "x0": 155,
+        "y0": 92,
+        "x1": 203,
+        "y1": 140
+      },
+      "local_label": "diode",
+      "local_confidence": 0.9
+    },
+    {
+      "id": "region-4",
+      "box": {
+        "x0": 112,
+        "y0": 168,
+        "x1": 147,
+        "y1": 199
+      },
+      "local_label": "diode",
+      "local_confidence": 0.59
+    },
+    {
+      "id": "region-5",
+      "box": {
+        "x0": 22,
+        "y0": 55,
+        "x1": 51,
+        "y1": 106
+      },
+      "local_label": "resistor_ieee",
+      "local_confidence": 0.72
+    }
+  ]
+}
