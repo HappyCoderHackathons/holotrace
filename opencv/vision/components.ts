@@ -6,7 +6,7 @@
 //  - A solid scribble: a battery or resistor drawn as a filled block.
 // Wires, junction dots and text are neither, so they get no box.
 
-import cv, { Mat } from "opencv-ts";
+import cv, { type Mat } from "opencv-ts";
 import {
     BODY_CLOSE_STROKES,
     BODY_MAX_STROKES,

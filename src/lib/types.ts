@@ -1,3 +1,5 @@
+import type { RecognitionResult } from './recognition';
+
 export type ComponentType =
 	| 'battery'
 	| 'led'
@@ -45,6 +47,8 @@ export interface DetectionInfo {
 	sourceImage: string | null;
 	status: string;
 	detectedAt: number | null;
+	/** Raw model evidence. It remains separate from normalized Circuit IR. */
+	recognition?: RecognitionResult;
 }
 
 export type ViewMode = 'circuit' | 'schematic' | 'components';
