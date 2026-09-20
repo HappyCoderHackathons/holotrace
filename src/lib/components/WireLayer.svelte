@@ -191,9 +191,9 @@
 		<circle
 			cx={node.x}
 			cy={node.y}
-			r={coarse ? 10 : wiresAt(node.id) >= 3 ? 5 : 4}
+			r={coarse ? 10 : schematic ? 4 : wiresAt(node.id) >= 3 ? 5 : 4}
 			fill={isSelected ? '#2f6bff' : schematic ? '#16a34a' : '#111827'}
-			stroke="#ffffff"
+			stroke={schematic && !isSelected ? 'none' : '#ffffff'}
 			stroke-width="1.5"
 			class={editable ? 'cursor-move' : ''}
 			role="button"
