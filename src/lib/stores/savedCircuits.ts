@@ -1,7 +1,9 @@
 import { get, writable } from 'svelte/store';
 
-import { createSavedCircuit, updateSavedCircuit } from '$lib/circuitApi';
-import { circuit } from './circuit';
+import { authClient } from '$lib/authClient';
+import { createSavedCircuit, getSavedCircuit, updateSavedCircuit } from '$lib/circuitApi';
+import type { CircuitState } from '$lib/types';
+import { circuit, loadDetectedCircuit } from './circuit';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -36,6 +38,31 @@ export async function saveCurrentCircuit(): Promise<void> {
 		saveStatus.set('error');
 		throw error;
 	}
+}
+
+export async function createCurrentCircuit(
+	data: CircuitState,
+	name = 'Untitled circuit'
+): Promise<void> {
+	activeSavedCircuitId.set(null);
+	activeSavedCircuitName.set(name);
+	saveStatus.set('idle');
+	saveError.set(null);
+	loadDetectedCircuit(data);
+
+	const session = await authClient.getSession();
+	if (!session.data) return;
+
+	await saveCurrentCircuit();
+}
+
+export async function openSavedCircuit(id: number): Promise<void> {
+	const saved = await getSavedCircuit(id);
+	loadDetectedCircuit(saved.data);
+	activeSavedCircuitId.set(saved.id);
+	activeSavedCircuitName.set(saved.name);
+	saveStatus.set('idle');
+	saveError.set(null);
 }
 
 export function clearSavedCircuitSelection(): void {

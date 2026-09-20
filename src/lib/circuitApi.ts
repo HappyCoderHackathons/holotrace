@@ -7,14 +7,17 @@ export interface SavedCircuit {
 	data: CircuitState;
 	createdAt: string;
 	modifiedAt: string;
+	lastOpenedAt: string;
 }
+
+export type SavedCircuitSummary = Omit<SavedCircuit, 'data'>;
 
 interface CircuitResponse {
 	circuit: SavedCircuit;
 }
 
 interface CircuitListResponse {
-	circuits: SavedCircuit[];
+	circuits: SavedCircuitSummary[];
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -35,7 +38,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	return (await response.json()) as T;
 }
 
-export async function listSavedCircuits(): Promise<SavedCircuit[]> {
+export async function listSavedCircuits(): Promise<SavedCircuitSummary[]> {
 	const response = await request<CircuitListResponse>('/api/circuits');
 	return response.circuits;
 }
@@ -61,6 +64,9 @@ export async function updateSavedCircuit(
 }
 
 export async function getSavedCircuit(id: number): Promise<SavedCircuit> {
-	const response = await request<CircuitResponse>(`/api/circuits/${id}`);
+	const response = await request<CircuitResponse>(`/api/circuits/${id}/open`, {
+		method: 'POST',
+		body: '{}'
+	});
 	return response.circuit;
 }

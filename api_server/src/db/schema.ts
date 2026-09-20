@@ -19,6 +19,7 @@ export const projects = pgTable("projects", {
     data: text("data").notNull(),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
     modifiedAt: timestamp("modifiedAt").defaultNow().notNull(),
+    lastOpenedAt: timestamp("lastOpenedAt").defaultNow().notNull(),
 });
 
 export const projectsRelations = relations(projects, ({ one }) => ({

@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "lastOpenedAt" timestamp DEFAULT now() NOT NULL;

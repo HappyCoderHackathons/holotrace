@@ -4,7 +4,7 @@ import { auth } from "./auth";
 import { db } from "./db";
 import { projects } from "./db/schema";
 
-const MAX_CIRCUIT_BYTES = 2 * 1024 * 1024;
+const MAX_CIRCUIT_BYTES = 12 * 1024 * 1024;
 
 interface CircuitBody {
   name?: unknown;
@@ -22,6 +22,22 @@ function serializeProject(project: typeof projects.$inferSelect) {
     data: JSON.parse(project.data) as unknown,
     createdAt: project.createdAt.toISOString(),
     modifiedAt: project.modifiedAt.toISOString(),
+    lastOpenedAt: project.lastOpenedAt.toISOString(),
+  };
+}
+
+function serializeProjectSummary(
+  project: Pick<
+    typeof projects.$inferSelect,
+    "id" | "name" | "createdAt" | "modifiedAt" | "lastOpenedAt"
+  >,
+) {
+  return {
+    id: project.id,
+    name: project.name,
+    createdAt: project.createdAt.toISOString(),
+    modifiedAt: project.modifiedAt.toISOString(),
+    lastOpenedAt: project.lastOpenedAt.toISOString(),
   };
 }
 
@@ -50,7 +66,7 @@ async function parseCircuitBody(request: Request): Promise<
   const data = JSON.stringify(body.data);
 
   if (Buffer.byteLength(data, "utf8") > MAX_CIRCUIT_BYTES) {
-    return jsonError("Circuit data exceeds the 2 MB limit", 413);
+    return jsonError("Circuit data exceeds the 12 MB limit", 413);
   }
 
   return { name, data };
@@ -58,6 +74,14 @@ async function parseCircuitBody(request: Request): Promise<
 
 function parseProjectId(url: URL): number | null {
   const match = /^\/api\/circuits\/(\d+)$/.exec(url.pathname);
+  if (!match?.[1]) return null;
+
+  const id = Number(match[1]);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function parseProjectOpenId(url: URL): number | null {
+  const match = /^\/api\/circuits\/(\d+)\/open$/.exec(url.pathname);
   if (!match?.[1]) return null;
 
   const id = Number(match[1]);
@@ -73,15 +97,22 @@ export async function handleCircuitRequest(request: Request, url: URL): Promise<
 
   const owner = session.user.id;
   const projectId = parseProjectId(url);
+  const projectOpenId = parseProjectOpenId(url);
 
   if (url.pathname === "/api/circuits" && request.method === "GET") {
     const savedProjects = await db
-      .select()
+      .select({
+        id: projects.id,
+        name: projects.name,
+        createdAt: projects.createdAt,
+        modifiedAt: projects.modifiedAt,
+        lastOpenedAt: projects.lastOpenedAt,
+      })
       .from(projects)
       .where(eq(projects.owner, owner))
-      .orderBy(desc(projects.modifiedAt));
+      .orderBy(desc(projects.lastOpenedAt), desc(projects.modifiedAt));
 
-    return Response.json({ circuits: savedProjects.map(serializeProject) });
+    return Response.json({ circuits: savedProjects.map(serializeProjectSummary) });
   }
 
   if (url.pathname === "/api/circuits" && request.method === "POST") {
@@ -95,6 +126,17 @@ export async function handleCircuitRequest(request: Request, url: URL): Promise<
 
     if (!created) return jsonError("Unable to save circuit", 500);
     return Response.json({ circuit: serializeProject(created) }, { status: 201 });
+  }
+
+  if (projectOpenId && request.method === "POST") {
+    const [savedProject] = await db
+      .update(projects)
+      .set({ lastOpenedAt: new Date() })
+      .where(and(eq(projects.id, projectOpenId), eq(projects.owner, owner)))
+      .returning();
+
+    if (!savedProject) return jsonError("Circuit not found", 404);
+    return Response.json({ circuit: serializeProject(savedProject) });
   }
 
   if (projectId && request.method === "GET") {

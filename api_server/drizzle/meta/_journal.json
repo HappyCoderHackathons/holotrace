@@ -22,6 +22,13 @@
       "when": 1789910198352,
       "tag": "0002_goofy_warbound",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789911188047,
+      "tag": "0003_workable_silverclaw",
+      "breakpoints": true
     }
   ]
 }
