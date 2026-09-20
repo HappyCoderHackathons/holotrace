@@ -4,6 +4,8 @@
 
 	interface Props {
 		wires: Wire[];
+		/** Touch input: wire and waypoint hit areas widen for fingers. */
+		coarse?: boolean;
 		components: CircuitComponent[];
 		selectedWireIds?: Set<string>;
 		/** wireId -> normalised current magnitude, 0 to 1 */
@@ -19,6 +21,7 @@
 	let {
 		wires,
 		components,
+		coarse = false,
 		selectedWireIds = new Set(),
 		activeCurrent = {},
 		editable = false,
@@ -55,7 +58,7 @@
 				{d}
 				fill="none"
 				stroke="transparent"
-				stroke-width="14"
+				stroke-width={coarse ? 26 : 14}
 				class="cursor-pointer focus:outline-none"
 				role="button"
 				tabindex="0"
@@ -73,7 +76,7 @@
 			<path
 				{d}
 				fill="none"
-				stroke={isSelected ? '#2563eb' : schematic ? '#16a34a' : wire.color}
+				stroke={isSelected ? '#2f6bff' : schematic ? '#16a34a' : wire.color}
 				stroke-width={isSelected ? 3 : 2.5}
 				stroke-linecap="round"
 				stroke-linejoin="round"
@@ -97,9 +100,9 @@
 					<circle
 						cx={point.x}
 						cy={point.y}
-						r={isSelected ? 6 : 5}
+						r={coarse ? 9 : isSelected ? 6 : 5}
 						fill="#ffffff"
-						stroke={isSelected ? '#2563eb' : '#64748b'}
+						stroke={isSelected ? '#2f6bff' : '#6b7685'}
 						stroke-width="2"
 						class="cursor-move"
 						role="button"

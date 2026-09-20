@@ -105,10 +105,8 @@ export const editMode = writable<boolean>(false);
 export const editTool = writable<EditTool>('select');
 export const selectedIds = writable<Set<string>>(new Set());
 export const selectedWireIds = writable<Set<string>>(new Set());
-export const wireColor = writable<string>('#22c55e');
+export const wireColor = writable<string>('#16a34a');
 export const wireStyle = writable<'solid' | 'dashed'>('solid');
-export const leftSidebarOpen = writable<boolean>(true);
-export const rightSidebarOpen = writable<boolean>(true);
 export const canvasZoom = writable<number>(1);
 export const canvasPan = writable<{ x: number; y: number }>({ x: 0, y: 0 });
 
