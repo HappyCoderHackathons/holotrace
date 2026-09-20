@@ -2,7 +2,7 @@
 	import { X, ImageUp, Loader2, ScanLine, AlertTriangle, Camera } from 'lucide-svelte';
 	import { readFileAsDataUrl, parseSketch } from '$lib/sketchParser';
 	import { recognizeWithModel } from '$lib/modelApi';
-	import { loadDetectedCircuit } from '$lib/stores/circuit';
+	import { createCurrentCircuit } from '$lib/stores/savedCircuits';
 	import { isCompact } from '$lib/stores/ui';
 	import { hasVideoInput } from '$lib/camera';
 	import type { OpenCvRecognitionInput } from '$lib/recognition';
@@ -29,6 +29,7 @@
 	 */
 	let prepared = $state<OpenCvRecognitionInput | null>(null);
 	let sourceDataUrl = $state<string | null>(null);
+	let circuitName = $state('Untitled circuit');
 	let sending = $state(false);
 
 	/*
@@ -53,6 +54,7 @@
 		try {
 			const dataUrl = await readFileAsDataUrl(file);
 			const { prepareRecognitionInput } = await import('$lib/opencvRecognition');
+			circuitName = file.name.replace(/\.[^.]+$/, '').trim() || 'Untitled circuit';
 			sourceDataUrl = dataUrl;
 			prepared = await prepareRecognitionInput(dataUrl);
 		} catch (cause) {
@@ -70,7 +72,7 @@
 		try {
 			const modelResult = await recognizeWithModel(prepared);
 			const predictionCount = modelResult.regions.length + modelResult.detections.length;
-			loadDetectedCircuit({
+			const createdCircuit = {
 				components: [],
 				wires: [],
 				detection: {
@@ -79,7 +81,15 @@
 					detectedAt: Date.now(),
 					recognition: modelResult
 				}
-			});
+			};
+
+			try {
+				await createCurrentCircuit(createdCircuit, circuitName);
+			} catch {
+				// The circuit remains open locally and the global Save action exposes a retry state.
+			}
+
+			sending = false;
 			discardPrepared();
 			close();
 		} catch (cause) {
@@ -97,6 +107,7 @@
 	function discardPrepared() {
 		prepared = null;
 		sourceDataUrl = null;
+		circuitName = 'Untitled circuit';
 	}
 
 	function close() {

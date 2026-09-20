@@ -24,7 +24,8 @@ must not receive user passwords or database credentials. The simplified applicat
 unchanged; it is not the credential source for Better Auth. Saved circuit JSON is currently stored in
 `public.projects`, whose text `owner` column references `auth.user.id`. The auth service exposes owner-scoped CRUD at
 `/api/circuits`; the client does not connect to PostgreSQL directly. This simplified record is an interim persistence
-surface and does not replace the versioned circuit model proposed below.
+surface and does not replace the versioned circuit model proposed below. The record tracks `lastOpenedAt`; list
+requests order by that value, and the authenticated detail request advances it when the circuit is opened.
 
 ## Proposed data areas
 

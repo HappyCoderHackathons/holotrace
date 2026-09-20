@@ -38,6 +38,7 @@ GET  /api/auth/get-session
 GET  /api/circuits
 POST /api/circuits
 GET  /api/circuits/:id
+POST /api/circuits/:id/open
 PUT  /api/circuits/:id
 DELETE /api/circuits/:id
 GET  /health
@@ -53,7 +54,11 @@ can retain a session while calling the deployed HTTPS API. Better Auth's origin 
 allowlist remain enabled; every client origin must be listed in `AUTH_TRUSTED_ORIGINS`.
 
 Circuit routes require a valid Better Auth session. `public.projects.owner` references `auth.user.id`, and every read,
-update, or delete includes that owner in its database predicate. Circuit JSON is limited to 2 MB per saved project.
+update, or delete includes that owner in its database predicate. Circuit JSON is limited to 12 MB per saved project
+to accommodate the captured source image currently embedded in the circuit state. Listing returns lightweight
+summaries ordered by `lastOpenedAt`; opening one circuit updates that timestamp before returning its full data.
+The app opens a circuit through `POST /api/circuits/:id/open`, keeping the timestamp mutation off the read-only GET
+route.
 
 `/internal/authorize` is intended for a reverse proxy's private authentication subrequest. It validates the Better
 Auth session cookie and returns `X-Holotrace-User-Id` on success. When `INTERNAL_AUTH_TOKEN` is configured, the proxy

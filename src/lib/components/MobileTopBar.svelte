@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Cpu, Image, SlidersHorizontal, Play, Square, Undo2, Redo2, LogIn, LogOut, Save } from 'lucide-svelte';
+	import { Cpu, Image, SlidersHorizontal, Play, Square, Undo2, Redo2, LogIn, LogOut, Save, FolderOpen } from 'lucide-svelte';
 	import { viewMode, undo, redo, canUndo, canRedo } from '$lib/stores/circuit';
 	import { openSheet } from '$lib/stores/ui';
 	import { simulationRunning, startSimulation, stopSimulation } from '$lib/stores/simulation';
@@ -34,6 +34,10 @@
 			// The button's accessible label reports that the save should be retried.
 		}
 	}
+
+	function gotoSavedCircuits() {
+		location = $session.data ? '/circuits' : '/login';
+	}
 </script>
 
 <header
@@ -48,6 +52,9 @@
 	</div>
 
 	<div class="ml-auto flex items-center gap-0.5">
+		<button class="chrome-icon-btn" aria-label="Saved circuits" onclick={gotoSavedCircuits}>
+			<FolderOpen size={18} />
+		</button>
 		<button
 			class="chrome-icon-btn"
 			aria-label={$saveStatus === 'error' ? 'Retry saving circuit' : 'Save circuit'}

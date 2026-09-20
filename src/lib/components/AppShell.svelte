@@ -18,6 +18,7 @@
 
     import LoginPage from '$lib/components/LoginPage.svelte'
     import RegisterPage from '$lib/components/RegisterPage.svelte'
+    import SavedCircuitsPage from '$lib/components/SavedCircuitsPage.svelte'
 
     let page_location = $state<string>("/");
 
@@ -37,6 +38,8 @@
     <LoginPage bind:location={page_location} />
 {:else if page_location === "/register"}
     <RegisterPage bind:location={page_location} />
+{:else if page_location === "/circuits"}
+    <SavedCircuitsPage bind:location={page_location} />
 {:else}
     {#if $isCompact}
         <!-- Compact: the canvas owns the screen, everything else is a sheet or a bar. -->

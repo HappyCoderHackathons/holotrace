@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Cpu, Save, Share2 } from 'lucide-svelte';
+	import { Cpu, FolderOpen, Save, Share2 } from 'lucide-svelte';
 	import { viewMode } from '$lib/stores/circuit';
 	import type { ViewMode } from '$lib/types';
 	import { authClient } from '$lib/authClient';
@@ -41,6 +41,10 @@
 			// The save store exposes the error state for the button label.
 		}
 	}
+
+	function gotoSavedCircuits() {
+		location = $session.data ? '/circuits' : '/login';
+	}
 </script>
 
 <!--
@@ -76,6 +80,13 @@
 	</nav>
 
 	<div class="flex items-center justify-end gap-2">
+		<button
+			class="flex items-center gap-1.5 rounded-lg border border-chrome-600 px-3.5 py-2 text-sm font-medium text-chrome-200 transition-colors hover:bg-chrome-700"
+			onclick={gotoSavedCircuits}
+		>
+			<FolderOpen size={14} />
+			Saved
+		</button>
 		<button
 			class="flex items-center gap-1.5 rounded-lg border border-chrome-600 px-3.5 py-2 text-sm font-medium text-chrome-200 transition-colors hover:bg-chrome-700 disabled:opacity-50"
 			disabled={$saveStatus === 'saving'}
