@@ -43,22 +43,28 @@ export function isCameraSupported(): boolean {
 }
 
 /**
- * Whether a camera is actually present. This, not the pointer type, is what
- * should decide if a capture affordance is offered: a desktop with a webcam
- * can capture, and a touch screen without a camera cannot.
+ * Whether to offer a capture affordance. This, not the pointer type, is what
+ * should decide it: a desktop with a webcam can capture, and a touch screen
+ * without a camera cannot.
  *
- * Before permission is granted, `enumerateDevices` reports video inputs with
- * empty labels, so this detects presence without prompting.
+ * Chromium reports video inputs with empty labels before permission is
+ * granted, so presence can be detected without prompting. WebKit — Safari and
+ * the WKWebView the macOS and iOS builds run in — reports nothing at all until
+ * permission has been granted, so an empty list means "unknown", not "no
+ * camera". Treating it as absent is what hid the capture button on macOS
+ * entirely. When it is unknown the affordance is offered and `openStream`
+ * reports a genuinely missing device through its 'no-device' error.
  */
-export async function hasVideoInput(): Promise<boolean> {
+export async function canOfferCapture(): Promise<boolean> {
 	if (!isCameraSupported() || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
 		return false;
 	}
 	try {
 		const devices = await navigator.mediaDevices.enumerateDevices();
-		return devices.some((d) => d.kind === 'videoinput');
+		if (devices.some((d) => d.kind === 'videoinput')) return true;
+		return devices.length === 0;
 	} catch {
-		return false;
+		return true;
 	}
 }
 
