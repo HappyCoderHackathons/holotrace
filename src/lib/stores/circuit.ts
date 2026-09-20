@@ -5,8 +5,7 @@ import type {
 	ComponentType,
 	Wire,
 	WireEnd,
-	ViewMode,
-	EditTool
+	ViewMode
 } from '../types';
 import { REF_PREFIX, defaultPins, PALETTE } from '../componentLibrary';
 import { createId } from '../id';
@@ -103,7 +102,6 @@ export const circuit = writable<CircuitState>(import.meta.env.DEV ? sampleCircui
 
 export const viewMode = writable<ViewMode>('circuit');
 export const editMode = writable<boolean>(false);
-export const editTool = writable<EditTool>('select');
 export const selectedIds = writable<Set<string>>(new Set());
 export const selectedWireIds = writable<Set<string>>(new Set());
 /** The end a wire is being drawn from, waiting for its other end. */
@@ -377,19 +375,6 @@ export function updateWireWaypoint(wireId: string, index: number, x: number, y: 
 			if (w.id !== wireId) return w;
 			const waypoints = [...(w.waypoints ?? [])];
 			waypoints[index] = { x, y };
-			return { ...w, waypoints };
-		})
-	}));
-}
-
-export function addWireWaypoint(wireId: string, x: number, y: number, atIndex?: number) {
-	circuit.update((state) => ({
-		...state,
-		wires: state.wires.map((w) => {
-			if (w.id !== wireId) return w;
-			const waypoints = [...(w.waypoints ?? [])];
-			const insertAt = atIndex === undefined ? waypoints.length : atIndex;
-			waypoints.splice(insertAt, 0, { x, y });
 			return { ...w, waypoints };
 		})
 	}));

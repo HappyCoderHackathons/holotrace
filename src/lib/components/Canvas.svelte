@@ -345,8 +345,7 @@
 	}
 
 	function handlePinPointerUp(e: PointerEvent, componentId: string, pinId: string) {
-		// (The event carries on to the canvas, which ends the gesture and forgets the pointer.)
-		// Coarse pointers complete on the next tap instead, handled above.
+		// A touch finishes on the next tap instead (see above).
 		if (!wireStart || !editable || $isCoarsePointer) return;
 		connect({ componentId, pinId });
 	}

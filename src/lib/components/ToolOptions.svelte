@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { Cable, MousePointer2, Check } from 'lucide-svelte';
+	import { Check } from 'lucide-svelte';
 	import FileActions from './FileActions.svelte';
 	import Properties from './Properties.svelte';
 	import {
-		editMode,
-		editTool,
 		selectedWireIds,
 		wireColor,
 		wireStyle,
