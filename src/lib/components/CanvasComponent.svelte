@@ -16,6 +16,8 @@
 		armedPinId?: string | null;
 		onpointerdown?: (event: PointerEvent) => void;
 		onclick?: (event: MouseEvent) => void;
+		/** Enter or Space on the focused part. */
+		onSelect?: () => void;
 		onPinPointerDown?: (event: PointerEvent, pinId: string) => void;
 		onPinPointerUp?: (event: PointerEvent, pinId: string) => void;
 	}
@@ -32,6 +34,7 @@
 		armedPinId = null,
 		onpointerdown = () => {},
 		onclick = () => {},
+		onSelect = () => {},
 		onPinPointerDown = () => {},
 		onPinPointerUp = () => {}
 	}: Props = $props();
@@ -54,6 +57,7 @@
 	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
+			onSelect();
 			onclick(e as unknown as MouseEvent);
 		}
 	}}

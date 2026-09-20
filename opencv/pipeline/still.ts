@@ -1,7 +1,10 @@
 // The still stage: works on the captured circuit after the camera and circuit detection stop.
 
 import cv, { Mat } from "../../src/lib/vision/cv";
-import { COMPONENT_COLOR, COMPONENT_CROP_MARGIN_STROKES, SHARPEN_AMOUNT, SHARPEN_SIGMA } from "../../src/lib/vision/config";
+import { COMPONENT_COLOR, COMPONENT_CROP_MARGIN_STROKES } from "../../src/lib/vision/config";
+import { gridWindows } from "../../src/lib/vision/candidates";
+import { sharpen as sharpenStill } from "../../src/lib/vision/sharpen";
+import { windowsWithInk } from "../../src/lib/vision/sweep";
 import { buildRecognition } from "../../src/lib/vision/recognition";
 import { state } from "../../src/lib/vision/state";
 import { classify, nameOf } from "../../src/lib/vision/classify";
@@ -18,12 +21,7 @@ const nameOfComponent = (n: number) => nameOf(state.analysis!.matches[n]);
 
 const sharpen: Step = {
     name: "Sharpened",
-    apply: (i, o) => {
-        const blurred = new cv.Mat();
-        cv.GaussianBlur(i, blurred, new cv.Size(0, 0), SHARPEN_SIGMA, SHARPEN_SIGMA, cv.BORDER_DEFAULT);
-        cv.addWeighted(i, SHARPEN_AMOUNT, blurred, 1 - SHARPEN_AMOUNT, 0, o, -1);
-        blurred.delete();
-    },
+    apply: (i, o) => sharpenStill(i, o),
 };
 
 // The components (lamp, battery, switch...), boxed and numbered on the capture, with the name of
@@ -75,7 +73,9 @@ export function processStill(still: Mat) {
             previous = output;
         }
         // What the next stage receives: the sharpened circuit, and the JSON that describes it.
-        showRecognition(buildRecognition(sharpened.cols, sharpened.rows, state.analysis.components, state.analysis.matches), sharpened);
+        // With the sweep windows too, as the app sends it.
+        const sweep = windowsWithInk(ink, gridWindows(sharpened.cols, sharpened.rows));
+        showRecognition(buildRecognition(sharpened.cols, sharpened.rows, state.analysis.components, state.analysis.matches, sweep), sharpened, state.detectScale);
         // Each component on its own, with more room around it than its box, and what it was taken for.
         const margin = Math.round(COMPONENT_CROP_MARGIN_STROKES * state.analysis.thickness);
         state.analysis.components.forEach((box, n) => {

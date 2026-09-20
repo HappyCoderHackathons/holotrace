@@ -2,23 +2,16 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { toRect } from "../../src/lib/vision/boxes";
-import { orientation } from "../../src/lib/vision/classify";
-import { partForLabel } from "../../src/lib/diagram/parts";
-import { buildDiagram, type BuildReport, type Diagram } from "../../src/lib/diagram/diagram";
-import { symbolsFor } from "../../src/lib/vision/labels";
+import type { Diagram } from "../../src/lib/diagram/diagram";
+import { type DiagramResult, diagramFromInk } from "../../src/lib/vision/build";
 import type { Component } from "../../src/lib/vision/reconcile";
-import { traceWires } from "../../src/lib/vision/wires";
 import type { PairInk } from "./ink";
 
-export type DiagramResult = { diagram: Diagram; report: BuildReport };
+export type { DiagramResult };
 
 // Works out the wiring between the components from the image's ink, and builds the diagram.
 export function makeDiagram(components: Component[], ink: PairInk): DiagramResult {
-    const boxes = components.map((component) => toRect(component.box));
-    const graph = traceWires(ink.ink, boxes, ink.thickness);
-    const orientations = components.map((component, n) => (partForLabel(component.label).directional ? orientation(ink.ink, boxes[n], symbolsFor(component.label)) : null));
-    return buildDiagram({ components, orientations, graph });
+    return diagramFromInk(components, ink.ink, ink.thickness);
 }
 
 export async function saveDiagram(dir: string, name: string, diagram: Diagram): Promise<string> {

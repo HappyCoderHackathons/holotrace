@@ -11,47 +11,62 @@ It tries its best and does not have to be right. A person fixes the result up in
 
 ## How to call it
 
-The reference caller is [`opencvRecognition.ts`](../opencvRecognition.ts). The sequence is (paths as in the app; a script imports the same files by relative path, as [`circuit-stuff`](../../../circuit-stuff/README.md) does):
+The reference callers are [`opencvRecognition.ts`](../opencvRecognition.ts) (before the model) and [`recognitionToCircuit.ts`](../recognitionToCircuit.ts) (after it). Paths below are as in the app; a script imports the same files by relative path, as [`circuit-stuff`](../../../circuit-stuff/README.md) does.
+
+**Before the model: a photo in, an image and a request out.**
 
 ```ts
 import cv from 'opencv-ts';
-import { DETECT_WIDTH, SHARPEN_AMOUNT, SHARPEN_SIGMA } from '$lib/vision/config';
 import { buildRecognition } from '$lib/vision/recognition';
-import { state } from '$lib/vision/state';
+import { gridWindows } from '$lib/vision/candidates';
+import { locateCircuit } from '$lib/vision/circuit';
 import { classify } from '$lib/vision/classify';
 import { findComponents } from '$lib/vision/components';
 import { inkMask } from '$lib/vision/ink';
+import { sharpen } from '$lib/vision/sharpen';
+import { detectScaleFor, state } from '$lib/vision/state';
+import { windowsWithInk } from '$lib/vision/sweep';
 
-// `source` is the photo as an RGBA cv.Mat, e.g. from cv.imread(image). OpenCV must be loaded first.
+// `photo` is the photo as an RGBA cv.Mat, e.g. from cv.imread(image). OpenCV must be loaded first.
 
-// 1. Find the circuit in the photo and cut it out (`locateCircuit` in circuit.ts), so a table, a hand or a face
-//    around the paper is not scanned. It sets state.detectScale and state.capturedMask itself, and returns null
-//    when no whole circuit is in view; then use the photo as it is, and set them yourself:
-//      state.detectScale = Math.max(1, source.cols / DETECT_WIDTH);
-//      state.capturedMask?.delete(); state.capturedMask = null;
-//    (the app does this in opencvRecognition.ts). The rest works on the crop, so the boxes are in its pixels.
+// 1. Find the circuit in the photo and cut it out, so a table, a hand or a face around the paper is not scanned.
+//    It sets state.detectScale and state.capturedMask, and returns null when no whole circuit is in view.
+const cropped = locateCircuit(photo);
+const source = cropped ?? photo;
+state.detectScale = detectScaleFor(photo.cols);   // (locateCircuit already did; needed for the null case)
 
-// 3. The image to send: an unsharp mask of the photo.
-const blurred = new cv.Mat();
+// 2. The image to send: an unsharp mask of the crop.
 const sharpened = new cv.Mat();
-cv.GaussianBlur(source, blurred, new cv.Size(0, 0), SHARPEN_SIGMA, SHARPEN_SIGMA, cv.BORDER_DEFAULT);
-cv.addWeighted(source, SHARPEN_AMOUNT, blurred, 1 - SHARPEN_AMOUNT, 0, sharpened, -1);
+sharpen(source, sharpened);
 
-// 4. Find and name the components.
+// 3. Find and name the components.
 const ink = inkMask(source);                                        // white where there is ink
 const { boxes, thickness } = findComponents(ink);                   // one box per component
 const matches = boxes.map((box) => classify(ink, box, thickness));  // a best guess for each
-const request = buildRecognition(sharpened.cols, sharpened.rows, boxes, matches);
 
-// 5. Send `sharpened` (as PNG) and `request` together, then free the Mats.
-ink.delete(); blurred.delete(); sharpened.delete(); source.delete();
+// 4. The sweep, then the request. Send `sharpened` (as PNG) and `request` together.
+const sweep = windowsWithInk(ink, gridWindows(sharpened.cols, sharpened.rows));
+const request = buildRecognition(sharpened.cols, sharpened.rows, boxes, matches, sweep);
 ```
+
+Keep the ink (as a PNG, say) and `state.detectScale` for the next step, and free every Mat.
+
+**After the model: the answer in, a circuit out.** Read the same ink back at the same scale, then merge, trace and build:
+
+```ts
+state.detectScale = savedScale;
+const found = reconcile(tightenRegions(ink, request.regions), answer.regions);   // or [] with no answer
+const { diagram, report } = diagramFromInk(found.components, ink, strokeThickness(ink));
+```
+
+`diagramFromInk` ([`build.ts`](build.ts)) traces the wires, works out how each part is turned and builds the diagram; the app and `circuit-stuff` both call it. With no model answer the app also keeps the first pass's unsure boxes as generic parts (`withUnsureKept` in [`reconcile.ts`](reconcile.ts)).
 
 Rules for callers:
 
-- **Set `state.detectScale` first.** Ink and stroke sizes are scaled by it. It is 1 for an image up to `DETECT_WIDTH` (640) pixels wide.
-- **The boxes are in pixels of the image passed to `findComponents`.** `sharpened` has the same size as `source`, so its regions describe it. If you crop, rotate or resize before sending, run the vision code on that image instead, or transform the boxes to match. The service requires `image_width`, `image_height` and every box to describe the image it receives.
-- **Free every `cv.Mat`.** `inkMask` returns one that the caller must delete.
+- **Set `state.detectScale` first, from the whole photo** (`detectScaleFor(photo.cols)`). Ink and stroke sizes are scaled by it. A crop is in the photo's pixels, so it takes the photo's scale, not one worked out from its own width. It is 1 for a photo up to `DETECT_WIDTH` (640) pixels wide.
+- **Both steps must read the same ink.** The boxes are found on `inkMask(source)` of the unsharpened crop, with the circuit mask applied. Recomputing ink from the sharpened image, or without the mask, gives a different threshold and different wires. The app saves the ink itself (`scan.ink`) and reads it back.
+- **The boxes are in pixels of the image passed to `findComponents`.** `sharpened` has the same size as `source`, so its regions describe it. If you rotate or resize before sending, run the vision code on that image instead, or transform the boxes to match. The service requires `image_width`, `image_height` and every box to describe the image it receives.
+- **Free every `cv.Mat`.** `inkMask` and `locateCircuit` return ones that the caller must delete.
 - **Run it on the full-resolution image**, not a downscaled copy. Everything is sized in pen-stroke widths, so it needs no other tuning.
 
 ### Optional: a sweep, so the first pass does not have to be complete
@@ -71,7 +86,7 @@ const request = buildRecognition(sharpened.cols, sharpened.rows, boxes, matches,
 const { components } = reconcile(tightenRegions(ink, request.regions), result.regions);
 ```
 
-`components` are the final answer: each has a box, a classifier label (`cghd-v0`), a confidence, and a `source` saying where it came from: `first-pass` (the model agreed with the first pass's box), `relabelled` (the first pass's box with the label a sweep window got, when the model rejected the box), `kept` (the first pass was sure of a name and the model rejected it without any window disagreeing), or `sweep` (found only by the sweep). First-pass boxes that none of these apply to are returned in `dropped`. The merge leans toward finding things (a person fixes the result up in the review step afterwards, and each component carries its `source` and `confidence` for that). A sweep window counts if the model is at least `MERGE_MIN_CONFIDENCE` (0.6) sure of a component label and at least `MERGE_MIN_SUPPORT` (2) overlapping windows agree with it (1 over a first-pass box, whose own box is a vote): a real symbol lights up under several shifted windows, junk over wiring usually under one. The rules and their numbers are at the top of [`reconcile.ts`](reconcile.ts) and in [`config.ts`](config.ts); `reconcile` also takes an options object, for trying other values out. A request holds at most `MAX_PROPOSALS` (2000) regions; the service takes 2048. This is not yet wired into the app's caller in [`opencvRecognition.ts`](../opencvRecognition.ts).
+`components` are the final answer: each has a box, a classifier label (`cghd-v0`), a confidence, and a `source` saying where it came from: `first-pass` (the model agreed with the first pass's box), `relabelled` (the first pass's box with the label a sweep window got, when the model rejected the box), `kept` (the first pass was sure of a name and the model rejected it without any window disagreeing), or `sweep` (found only by the sweep). First-pass boxes that none of these apply to are returned in `dropped`. The merge leans toward finding things (a person fixes the result up in the review step afterwards, and each component carries its `source` and `confidence` for that). A sweep window counts if the model is at least `MERGE_MIN_CONFIDENCE` (0.6) sure of a component label and at least `MERGE_MIN_SUPPORT` (2) overlapping windows agree with it (1 over a first-pass box, whose own box is a vote): a real symbol lights up under several shifted windows, junk over wiring usually under one. The rules and their numbers are at the top of [`reconcile.ts`](reconcile.ts) and in [`config.ts`](config.ts); `reconcile` also takes an options object, for trying other values out. A request holds at most `MAX_PROPOSALS` (2000) regions; the service takes 2048. The app sends the sweep in [`opencvRecognition.ts`](../opencvRecognition.ts) and merges the answer in [`recognitionToCircuit.ts`](../recognitionToCircuit.ts).
 
 ## Functions
 
@@ -120,7 +135,7 @@ The names come from the textbook symbols in [`vision/symbols.ts`](symbols.ts) an
 ## Not yet matching the rest of the system
 
 - **Label names.** The classifier's label set is `cghd-v0` (`resistor`, `capacitor.unpolarized`, `voltage.battery`, `gnd`, `and`, ...; see [`labels.py`](../../../classifier/src/holotrace_classifier/labels.py)). The local names above are this stage's own. The server only echoes `local_label` back, so nothing breaks. The mapping between the two is in [`labels.ts`](labels.ts) for anything that needs it; the API server has not been changed to use it.
-- **Wire graph and orientation.** The API server's [`OpenCvAnalysis`](../../../api_server/src/circuit/recognition.ts) also expects a wire graph and an optional rotation per region. This stage produces regions only.
+- **Wire graph and orientation.** The API server's [`OpenCvAnalysis`](../../../api_server/src/circuit/recognition.ts) also expects a wire graph and an optional rotation per region. The request this stage sends holds regions only (the classifier rejects extra fields). The app traces the wires ([`wires.ts`](wires.ts)) and works out rotations ([`orientation`](classify.ts)) itself, after the model answers, and builds its own diagram from them; nothing sends them to the API server yet.
 
 ## Layout
 
@@ -138,6 +153,8 @@ classify.ts     best-guess naming
 symbols.ts      textbook symbol drawings and groups
 exemplars.ts    real hand-drawn examples
 circuit.ts      finding the whole circuit in a photo or frame, and cutting it out
+sharpen.ts      the unsharp mask applied before the image is sent
+build.ts        components + ink -> diagram (wire tracing, orientation, parts and connections)
 sweep.ts        the parts of the sweep that look at the ink
 wires.ts        which components each drawn wire touches
 cv.ts           the one OpenCV import point for the tools
@@ -153,4 +170,4 @@ Known limits: a crossing drawn with a dot is a junction, and a crossing where th
 
 ## The dev page and the scripts
 
-The code here is the source of truth; the tools pull from it. The webcam dev page in [`opencv/`](../../../opencv/README.md) runs the whole flow live, and [`circuit-stuff/`](../../../circuit-stuff/README.md) sends photo + JSON pairs to the model API and shows what comes back. Neither keeps a copy.
+The code here is the source of truth; the tools pull from it. The webcam dev page in [`opencv/`](../../../opencv/README.md) runs the on-device first pass live (including the sweep, as the app sends it), and [`circuit-stuff/`](../../../circuit-stuff/README.md) sends photo + JSON pairs to the model API and shows what comes back. Neither keeps a copy.

@@ -49,12 +49,10 @@
 			>
 				<FlipHorizontal2 size={17} />
 			</button>
-			<button class="chrome-icon-btn" aria-label="Duplicate" disabled>
-				<Copy size={17} />
-			</button>
 			<button
 				class="chrome-icon-btn text-signal-danger hover:bg-signal-danger/15"
 				aria-label="Delete"
+				disabled={!$editMode}
 				onclick={deleteSelected}
 			>
 				<Trash2 size={17} />

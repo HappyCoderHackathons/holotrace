@@ -108,6 +108,10 @@ export const selectedIds = writable<Set<string>>(new Set());
 export const selectedWireIds = writable<Set<string>>(new Set());
 /** The end a wire is being drawn from, waiting for its other end. */
 export const pendingWire = writable<WireEnd | null>(null);
+/** Bumped when the canvas should frame the whole circuit (after a load, an import, a new circuit). */
+export const fitRequest = writable<number>(0);
+/** The middle of what the canvas shows, in canvas units: where a part placed from the palette goes. */
+export const viewCentre = writable<{ x: number; y: number }>({ x: 480, y: 300 });
 export const selectedNodeIds = writable<Set<string>>(new Set());
 export const wireColor = writable<string>('#16a34a');
 export const wireStyle = writable<'solid' | 'dashed'>('solid');
@@ -115,49 +119,94 @@ export const canvasZoom = writable<number>(1);
 export const canvasPan = writable<{ x: number; y: number }>({ x: 0, y: 0 });
 
 // ---- history (undo/redo) ----
-const history: CircuitState[] = [];
+// What undo restores: the parts, wires and junctions. The captured photo and the model's answer (`detection`) are not
+// part of the history: they can be megabytes, and an edit does not change them.
+type Snapshot = Pick<CircuitState, 'components' | 'wires' | 'nodes'>;
+
+const history: Snapshot[] = [];
 let historyIndex = -1;
 let suppressHistory = false;
+let lastSeen: CircuitState | null = null;
+/** While a drag is under way the intermediate states are not kept; the finished one is (see beginGesture). */
+let gestureOpen = false;
+let gestureChanged = false;
+/** Bumped whenever the history changes, so canUndo and canRedo follow it. */
+const historyVersion = writable(0);
+
+function snapshotOf(state: CircuitState): Snapshot {
+	return JSON.parse(JSON.stringify({ components: state.components, wires: state.wires, nodes: state.nodes }));
+}
 
 function pushHistory(state: CircuitState) {
-	if (suppressHistory) return;
 	history.splice(historyIndex + 1);
-	history.push(JSON.parse(JSON.stringify(state)));
+	history.push(snapshotOf(state));
 	historyIndex = history.length - 1;
 	if (history.length > 50) {
 		history.shift();
 		historyIndex--;
 	}
+	historyVersion.update((n) => n + 1);
 }
 
-circuit.subscribe((state) => pushHistory(state));
+circuit.subscribe((state) => {
+	// An update that changes nothing hands back the same object: it is not a step to undo.
+	if (state === lastSeen) return;
+	lastSeen = state;
+	if (suppressHistory) return;
+	if (gestureOpen) {
+		gestureChanged = true;
+		return;
+	}
+	pushHistory(state);
+});
+
+/** Call when a drag starts: everything it changes until endGesture is one undo step. */
+export function beginGesture() {
+	gestureOpen = true;
+	gestureChanged = false;
+}
+
+/** Call when the drag ends. */
+export function endGesture() {
+	if (!gestureOpen) return;
+	gestureOpen = false;
+	if (gestureChanged) pushHistory(get(circuit));
+	gestureChanged = false;
+}
+
+function restore(index: number) {
+	suppressHistory = true;
+	circuit.update((state) => ({ ...state, ...JSON.parse(JSON.stringify(history[index])) }));
+	suppressHistory = false;
+	pendingWire.set(null);
+	clearSelection();
+	historyVersion.update((n) => n + 1);
+}
 
 export function undo() {
 	if (historyIndex <= 0) return;
 	historyIndex--;
-	suppressHistory = true;
-	circuit.set(JSON.parse(JSON.stringify(history[historyIndex])));
-	suppressHistory = false;
+	restore(historyIndex);
 }
 
 export function redo() {
 	if (historyIndex >= history.length - 1) return;
 	historyIndex++;
-	suppressHistory = true;
-	circuit.set(JSON.parse(JSON.stringify(history[historyIndex])));
-	suppressHistory = false;
+	restore(historyIndex);
 }
 
-export const canUndo = derived([circuit], () => historyIndex > 0);
-export const canRedo = derived([circuit], () => historyIndex < history.length - 1);
+export const canUndo = derived([historyVersion], () => historyIndex > 0);
+export const canRedo = derived([historyVersion], () => historyIndex < history.length - 1);
 
 // ---- mutation helpers ----
 function nextRefId(type: ComponentType): string {
 	const prefix = REF_PREFIX[type];
 	const state = get(circuit);
+	// Counted by prefix, not by type: an LED and a diode are both D, so the next is D2 whichever is added.
 	const existing = state.components
-		.filter((c) => c.type === type)
-		.map((c) => parseInt(c.refId.replace(prefix, ''), 10) || 0);
+		.map((c) => c.refId)
+		.filter((ref) => ref.startsWith(prefix) && /^\d+$/.test(ref.slice(prefix.length)))
+		.map((ref) => parseInt(ref.slice(prefix.length), 10));
 	const next = existing.length ? Math.max(...existing) + 1 : 1;
 	return `${prefix}${next}`;
 }
@@ -207,6 +256,11 @@ export function mirrorComponent(id: string) {
 
 export function addWire(wire: Omit<Wire, 'id'>) {
 	circuit.update((state) => {
+		const exists = (end: WireEnd) =>
+			'nodeId' in end
+				? state.nodes.some((n) => n.id === end.nodeId)
+				: state.components.some((c) => c.id === end.componentId && c.pins.some((p) => p.id === end.pinId));
+		if (!exists(wire.from) || !exists(wire.to)) return state;
 		if (sameEnd(wire.from, wire.to)) return state;
 		const alreadyWired = state.wires.some(
 			(w) =>
@@ -219,7 +273,7 @@ export function addWire(wire: Omit<Wire, 'id'>) {
 }
 
 export function removeWire(id: string) {
-	circuit.update((state) => ({ ...state, wires: state.wires.filter((w) => w.id !== id) }));
+	circuit.update((state) => tidyNodes({ ...state, wires: state.wires.filter((w) => w.id !== id) }));
 }
 
 /** Puts a junction on the canvas. Wires end at it like they do at a pin. */
@@ -295,16 +349,21 @@ export function updateComponent(id: string, patch: ComponentPatch) {
 	}));
 }
 
-/** A junction with fewer than two wires is not doing anything: it is dropped with the wires it was left holding. */
+/**
+ * A junction with fewer than two wires is not joining anything: it is dropped, and the one wire it was left holding
+ * with it (that wire would end in mid-air). This can leave another junction short, so it repeats.
+ */
 function tidyNodes(state: CircuitState): CircuitState {
 	let { nodes, wires } = state;
 	for (let again = true; again; ) {
 		again = false;
-		const used = (nodeId: string) =>
-			wires.filter((w) => ('nodeId' in w.from && w.from.nodeId === nodeId) || ('nodeId' in w.to && w.to.nodeId === nodeId)).length;
-		const dead = nodes.filter((n) => used(n.id) === 0);
+		const touches = (w: Wire, nodeId: string) =>
+			('nodeId' in w.from && w.from.nodeId === nodeId) || ('nodeId' in w.to && w.to.nodeId === nodeId);
+		const dead = nodes.filter((n) => wires.filter((w) => touches(w, n.id)).length < 2);
 		if (dead.length) {
-			nodes = nodes.filter((n) => !dead.includes(n));
+			const ids = new Set(dead.map((n) => n.id));
+			nodes = nodes.filter((n) => !ids.has(n.id));
+			wires = wires.filter((w) => ![...ids].some((id) => touches(w, id)));
 			again = true;
 		}
 	}
@@ -364,6 +423,7 @@ export function setWireStyleFor(id: string, style: 'solid' | 'dashed') {
 
 /** Deletes the whole selection as a single undoable step. */
 export function deleteSelected() {
+	if (!get(editMode)) return;
 	const componentIds = get(selectedIds);
 	const wireIds = get(selectedWireIds);
 	const nodeIds = get(selectedNodeIds);
@@ -391,13 +451,27 @@ export function clearSelection() {
 export function loadDetectedCircuit(state: CircuitState) {
 	history.length = 0;
 	historyIndex = -1;
+	gestureOpen = false;
 	circuit.set(state);
+	pendingWire.set(null);
 	clearSelection();
+	fitRequest.update((n) => n + 1);
+}
+
+/**
+ * Replaces the circuit as one undoable step (Import, New), so a mistaken replace can be taken back.
+ * Junctions and selection go with the old circuit.
+ */
+function replaceCircuit(state: CircuitState) {
+	circuit.set(state);
+	pendingWire.set(null);
+	clearSelection();
+	fitRequest.update((n) => n + 1);
 }
 
 /** Starts over with an empty canvas. */
 export function newCircuit() {
-	loadDetectedCircuit({
+	replaceCircuit({
 		components: [],
 		wires: [],
 		nodes: [],
@@ -415,7 +489,7 @@ export function loadDiagram(input: unknown): { warnings: string[] } | { error: s
 	const parsed = parseDiagram(input);
 	if ('error' in parsed) return parsed;
 	const { components, wires, nodes } = diagramToCircuit(parsed.diagram);
-	loadDetectedCircuit({
+	replaceCircuit({
 		components,
 		wires,
 		nodes,

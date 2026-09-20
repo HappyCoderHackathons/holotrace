@@ -1,10 +1,11 @@
 # opencv
 
-A webcam dev and test page for the app's on-device OpenCV first pass. It runs the whole flow live and shows every step, so the vision code can be tuned by eye. It is for development only; the code it runs lives in the app, in [`src/lib/vision`](../src/lib/vision/README.md), and this folder pulls it from there.
+A webcam dev and test page for the app's on-device OpenCV first pass. It runs the on-device first pass live, up to the request the app would send (sweep included), and shows every step, so the vision code can be tuned by eye. It is for development only; the code it runs lives in the app, in [`src/lib/vision`](../src/lib/vision/README.md), and this folder pulls it from there.
 
 ```text
 camera  ->  find the whole circuit  ->  hold still, take a screenshot
-        ->  sharpen  ->  find and name the components  ->  recognition.json + captured-circuit.png
+        ->  sharpen  ->  find and name the components  ->  sweep windows
+        ->  recognition.json + captured-circuit.png + captured-circuit.meta.json (the scale it was scanned at)
 ```
 
 ## Running it

@@ -20,6 +20,11 @@ import { GENERIC_TYPE, NODE_TYPE, partByType, partForLabel, type PartDef, type P
 
 export const DIAGRAM_VERSION = 1;
 
+// What a file may hold: far more than a circuit drawn by hand, and coordinates a canvas can still show.
+export const MAX_PARTS = 2000;
+export const MAX_CONNECTIONS = 5000;
+export const MAX_COORDINATE = 100_000;
+
 // The median part is drawn this big (canvas units), and the circuit is centred here.
 export const PART_TARGET_SIZE = 64;
 export const CANVAS_CENTRE = { x: 480, y: 300 };
@@ -231,7 +236,8 @@ export function parseDiagram(input: unknown): { diagram: Diagram; warnings: stri
 
     const parts: DiagramPart[] = [];
     const seen = new Set<string>();
-    for (const [n, raw] of source.parts.entries()) {
+    if (source.parts.length > MAX_PARTS) warnings.push(`the file has ${source.parts.length} parts; only the first ${MAX_PARTS} are read`);
+    for (const [n, raw] of source.parts.slice(0, MAX_PARTS).entries()) {
         const part = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
         const id = typeof part.id === "string" ? part.id.trim() : "";
         if (id === "" || id.includes(":")) {
@@ -242,8 +248,9 @@ export function parseDiagram(input: unknown): { diagram: Diagram; warnings: stri
             warnings.push(`part id ${id} appears twice; the second is left out`);
             continue;
         }
-        if (!Number.isFinite(part.top) || !Number.isFinite(part.left)) {
-            warnings.push(`part ${id} has no numeric top and left; left out`);
+        const inRange = (v: unknown) => typeof v === "number" && Number.isFinite(v) && Math.abs(v) <= MAX_COORDINATE;
+        if (!inRange(part.top) || !inRange(part.left)) {
+            warnings.push(`part ${id} has no top and left within +/-${MAX_COORDINATE}; left out`);
             continue;
         }
         const attrs = (typeof part.attrs === "object" && part.attrs !== null ? { ...(part.attrs as Record<string, string | number | boolean>) } : {}) as DiagramPart["attrs"];
@@ -263,7 +270,10 @@ export function parseDiagram(input: unknown): { diagram: Diagram; warnings: stri
 
     const pinsById = new Map(parts.map((p) => [p.id, new Set(pinsOf(partByType(p.type)!, p.attrs).map((pin) => pin.id))]));
     const connections: DiagramConnection[] = [];
-    for (const [n, raw] of (Array.isArray(source.connections) ? source.connections : []).entries()) {
+    const seenConnections = new Set<string>();
+    const listed = Array.isArray(source.connections) ? source.connections : [];
+    if (listed.length > MAX_CONNECTIONS) warnings.push(`the file has ${listed.length} connections; only the first ${MAX_CONNECTIONS} are read`);
+    for (const [n, raw] of listed.slice(0, MAX_CONNECTIONS).entries()) {
         const list = Array.isArray(raw) ? raw : [];
         const [a, b, colour, hints] = list as [unknown, unknown, unknown, unknown];
         const ends = [a, b].map((e) => (typeof e === "string" ? e.split(":") : []));
@@ -272,6 +282,17 @@ export function parseDiagram(input: unknown): { diagram: Diagram; warnings: stri
             warnings.push(`connection ${n + 1} (${JSON.stringify(list.slice(0, 2))}) joins something that is not there; left out`);
             continue;
         }
+        if (a === b) {
+            warnings.push(`connection ${n + 1} joins ${JSON.stringify(a)} to itself; left out`);
+            continue;
+        }
+        // The same two ends twice, in either order, are one connection.
+        const pair = [a, b].sort().join(" ");
+        if (seenConnections.has(pair)) {
+            warnings.push(`connection ${n + 1} repeats an earlier one; left out`);
+            continue;
+        }
+        seenConnections.add(pair);
         connections.push([a as string, b as string, typeof colour === "string" ? colour : "green", Array.isArray(hints) ? hints.filter((h): h is string => typeof h === "string") : []]);
     }
 

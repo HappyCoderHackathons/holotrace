@@ -1,10 +1,9 @@
 // The ink of a pair's image, looked at the way the app looks at a photo: the same ink mask and stroke width.
 
 import { extname } from "node:path";
-import { DETECT_WIDTH } from "../../src/lib/vision/config";
 import { strokeThickness } from "../../src/lib/vision/components";
 import { inkMask } from "../../src/lib/vision/ink";
-import { state } from "../../src/lib/vision/state";
+import { detectScaleFor, state } from "../../src/lib/vision/state";
 import type { Mat } from "../../src/lib/vision/cv";
 import type { LoadedPair } from "./load-pair";
 import { whenOpenCvReady } from "./opencv";
@@ -26,7 +25,10 @@ export async function loadInk(loaded: LoadedPair): Promise<PairInk | { error: st
         const { cv } = await whenOpenCvReady();
         const source = new cv.Mat(height, width, cv.CV_8UC4);
         source.data.set(rgba);
-        state.detectScale = Math.max(1, width / DETECT_WIDTH);
+        // The scale the capture was scanned at, from the dev page's meta file. Without it the image's own width is used, which
+        // is only right for an uncropped photo (a crop is in the photo's pixels, so its width reads too small).
+        if (loaded.detectScale === null) console.error(`warning: ${loaded.pair.name} has no .meta.json (save it with the dev page's Download scale button); guessing the scale from the image width`);
+        state.detectScale = loaded.detectScale ?? detectScaleFor(width);
         state.capturedMask = null;
         const ink = inkMask(source);
         source.delete();

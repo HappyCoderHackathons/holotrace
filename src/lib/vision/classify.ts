@@ -76,7 +76,9 @@ function drawSymbol(parts: SymbolDrawing["parts"]): { art: Mat; aspect: number }
         else (cv.ellipse as (...args: unknown[]) => void)(full, new cv.Point(at(part.x), at(part.y)), new cv.Size(at(part.rx), at(part.ry)), 0, part.from, part.to, white, 3);
     }
     const bounds = cv.boundingRect(full);
-    const art = full.roi(bounds).clone();
+    const view = full.roi(bounds);
+    const art = view.clone();
+    view.delete();
     full.delete();
     return { art, aspect: bounds.width / bounds.height };
 }
