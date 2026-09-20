@@ -20,7 +20,7 @@ export type Region = {
 };
 
 export type Recognition = {
-    schema_version: string;
+    schema_version: typeof SCHEMA_VERSION;
     client_preprocess_version: string;
     image_width: number;
     image_height: number;

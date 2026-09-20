@@ -12,6 +12,7 @@ These documents describe intentions, not implemented behavior. Names, schemas, d
 - [PostgreSQL](postgresql.md): how PostgreSQL persists the component catalog, circuit versions, and selected simulation results.
 - [Schema](schema.sql.md): an annotated SQL draft for the PostgreSQL model.
 - [Circuit normalization](circuit-normalization.md): provisional OpenCV wire-graph, pin-template, and Circuit IR flow.
+- [Model API example](model-api-example.md): multipart recognition request and the OpenCV-to-Tauri call path.
 
 ## Current direction
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { X, ImageUp, Loader2, ScanLine, AlertTriangle, Camera } from 'lucide-svelte';
 	import { readFileAsDataUrl, parseSketch } from '$lib/sketchParser';
+	import { recognizeWithModel } from '$lib/modelApi';
 	import { loadDetectedCircuit } from '$lib/stores/circuit';
 	import { isCompact, isCoarsePointer } from '$lib/stores/ui';
 
@@ -28,11 +29,23 @@
 		processing = true;
 		try {
 			const dataUrl = await readFileAsDataUrl(file);
-			loadDetectedCircuit(await parseSketch(dataUrl));
+			const { prepareRecognitionInput } = await import('$lib/opencvRecognition');
+			const modelResult = await recognizeWithModel(await prepareRecognitionInput(dataUrl));
+			const predictionCount = modelResult.regions.length + modelResult.detections.length;
+			loadDetectedCircuit({
+				components: [],
+				wires: [],
+				detection: {
+					sourceImage: dataUrl,
+					status: `Model recognized ${predictionCount} candidate${predictionCount === 1 ? '' : 's'}; circuit normalization is pending`,
+					detectedAt: Date.now(),
+					recognition: modelResult
+				}
+			});
 			close();
-		} catch {
+		} catch (cause) {
 			// Keep the dialog open so the capture is not silently discarded.
-			error = 'Could not read that sketch. Check the file and try again.';
+			error = cause instanceof Error ? cause.message : 'Could not recognize that sketch. Try again.';
 		} finally {
 			processing = false;
 		}

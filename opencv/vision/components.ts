@@ -6,7 +6,7 @@
 //  - A solid scribble: a battery or resistor drawn as a filled block.
 // Wires, junction dots and text are neither, so they get no box.
 
-import cv, { Mat } from "opencv-ts";
+import cv, { type Mat } from "opencv-ts";
 import {
     BODY_CLOSE_STROKES,
     BODY_MAX_STROKES,
@@ -15,12 +15,17 @@ import {
     BODY_MIN_STROKES,
     COMPONENT_MAX_AREA_FRACTION,
     COMPONENT_PAD_STROKES,
+    EDGE_STROKES,
     MERGE_GAP_STROKES,
     RING_CLOSE_STROKES,
     RING_MIN_STROKES,
     RING_PIECE_STROKES,
+    RING_REACH_STROKES,
+    RING_SMALL_STROKES,
     SCRAP_RATIO,
     SOLID_CLOSE_STROKES,
+    SOLID_MIN_ASPECT,
+    SOLID_MIN_FILL,
     SOLID_MIN_STROKES,
     SOLID_OPEN_STROKES,
 } from "../config";
@@ -70,6 +75,13 @@ const area = (r: Rect) => r.width * r.height;
 const near = (a: Rect, b: Rect, gap: number) =>
     Math.min(a.x + a.width + gap, b.x + b.width) > Math.max(a.x - gap, b.x) &&
     Math.min(a.y + a.height + gap, b.y + b.height) > Math.max(a.y - gap, b.y);
+
+// The box grown by `by` pixels on every side, kept inside `ink`.
+function grow(box: Rect, by: number, ink: Mat): Rect {
+    const x0 = Math.max(0, box.x - by);
+    const y0 = Math.max(0, box.y - by);
+    return { x: x0, y: y0, width: Math.min(ink.cols, box.x + box.width + by) - x0, height: Math.min(ink.rows, box.y + box.height + by) - y0 };
+}
 
 // Grows boxes that overlap or lie within `gap` of each other into one, until none do.
 function mergeNear(boxes: Rect[], gap: number): Rect[] {
@@ -133,8 +145,12 @@ function solidBlocks(ink: Mat, thickness: number): Rect[] {
     for (let n = 0; n < contours.size(); n++) {
         const contour = contours.get(n);
         const box = cv.boundingRect(contour);
-        if (longSide(box) >= SOLID_MIN_STROKES * thickness) found.push(box);
         contour.delete();
+        if (longSide(box) < SOLID_MIN_STROKES * thickness || longSide(box) > BODY_MAX_STROKES * thickness || aspect(box) < SOLID_MIN_ASPECT) continue;
+        const region = ink.roi(new cv.Rect(box.x, box.y, box.width, box.height));
+        const fill = cv.countNonZero(region) / area(box);
+        region.delete();
+        if (fill >= SOLID_MIN_FILL) found.push(box);
     }
     contours.delete();
     hierarchy.delete();
@@ -153,9 +169,10 @@ export function findComponents(ink: Mat): { boxes: Rect[]; thickness: number } {
         (box) => longSide(box) >= BODY_MIN_STROKES * thickness && aspect(box) >= BODY_MIN_ASPECT,
     );
     // Rings that a light closing shows as pieces to be grouped, like a lamp's wedges.
-    const rings = mergeNear(enclosedAreas(ink, thickness, RING_CLOSE_STROKES, RING_PIECE_STROKES), gap).filter(
-        (box) => longSide(box) >= RING_MIN_STROKES * thickness && longSide(box) <= BODY_MAX_STROKES * thickness && aspect(box) >= BODY_MIN_ASPECT,
-    );
+    const reach = Math.round(RING_REACH_STROKES * thickness);
+    const rings = mergeNear(enclosedAreas(ink, thickness, RING_CLOSE_STROKES, RING_PIECE_STROKES), gap)
+        .filter((box) => longSide(box) >= RING_MIN_STROKES * thickness && longSide(box) <= BODY_MAX_STROKES * thickness && aspect(box) >= BODY_MIN_ASPECT)
+        .map((box) => (longSide(box) > RING_SMALL_STROKES * thickness ? box : grow(box, reach, ink)));
     const bodies = [...gates, ...rings.filter((ring) => !gates.some((gate) => near(ring, gate, 0)))];
     const blocks = mergeNear(solidBlocks(ink, thickness), gap).filter((block) => !bodies.some((body) => near(block, body, 0)));
 
@@ -165,14 +182,12 @@ export function findComponents(ink: Mat): { boxes: Rect[]; thickness: number } {
 
     // A little room around each component, for whoever looks at the crop.
     const pad = Math.round(COMPONENT_PAD_STROKES * thickness);
-    const padded = boxes
-        .map((box) => {
-            const x0 = Math.max(0, box.x - pad);
-            const y0 = Math.max(0, box.y - pad);
-            const x1 = Math.min(ink.cols, box.x + box.width + pad);
-            const y1 = Math.min(ink.rows, box.y + box.height + pad);
-            return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
-        })
+    // A component sits well inside the crop, which has room around the circuit; a box against the edge
+    // is the table or the paper's edge, not a component.
+    const edge = Math.round(EDGE_STROKES * thickness);
+    const inside = boxes.filter((box) => box.x > edge && box.y > edge && box.x + box.width < ink.cols - edge && box.y + box.height < ink.rows - edge);
+    const padded = inside
+        .map((box) => grow(box, pad, ink))
         .filter((box) => area(box) <= COMPONENT_MAX_AREA_FRACTION * ink.cols * ink.rows);
     return { boxes: padded, thickness };
 }
