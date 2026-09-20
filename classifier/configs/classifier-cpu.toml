@@ -1,0 +1,30 @@
+# Classifier sized for the 12-core CPU training server: finishes inside time_budget_hours.
+# Measured there: resnet_tiny width 32 trains at ~520 samples/s at 64 px versus ~220 at 96 px.
+seed = 1337
+output_dir = "runs/classifier"
+run_name = ""
+threads = 9  # PyTorch compute threads; the remaining cores feed the data loader
+
+[data]
+root = "data/crops"
+input_size = 64
+batch_size = 128
+num_workers = 3
+balance_classes = true
+rotate90 = true
+
+[model]
+arch = "resnet_tiny"
+width = 32
+dropout = 0.2
+
+[optim]
+epochs = 40  # upper bound; the time budget usually ends the run first
+time_budget_hours = 7.0
+lr = 3e-3
+weight_decay = 5e-4
+warmup_epochs = 0.5
+label_smoothing = 0.05
+grad_clip = 1.0
+amp = true
+early_stop_patience = 6

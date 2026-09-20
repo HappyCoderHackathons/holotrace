@@ -1,0 +1,46 @@
+[project]
+name = "holotrace-classifier"
+version = "0.1.0"
+description = "Symbol recognition models for Holotrace circuit diagrams"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.2",
+    "opencv-python-headless>=4.11",
+    "pydantic>=2.11",
+    "torch>=2.8",
+    "torchvision>=0.23",
+]
+
+[project.optional-dependencies]
+serve = ["flask>=3.1", "waitress>=3.0"]
+
+[project.scripts]
+holotrace-ml = "holotrace_classifier.cli:main"
+
+[dependency-groups]
+dev = ["ruff>=0.12"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/holotrace_classifier"]
+
+# CPU wheels on Linux and Windows (the training server has no GPU). macOS PyPI wheels are already CPU/MPS.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform != 'darwin'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform != 'darwin'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
