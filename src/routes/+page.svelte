@@ -2,14 +2,18 @@
 	import { onMount } from 'svelte';
 	import AppShell from '$lib/components/AppShell.svelte';
 	import UploadModal from '$lib/components/UploadModal.svelte';
-	import { deleteSelected } from '$lib/stores/circuit';
+	import FileNotice from '$lib/components/FileNotice.svelte';
+	import { get } from 'svelte/store';
+	import { deleteSelected, editMode } from '$lib/stores/circuit';
 	import { activeSheet } from '$lib/stores/ui';
 
 	let uploadOpen = $state(false);
 
 	function handleKeydown(e: KeyboardEvent) {
 		const target = e.target as HTMLElement;
-		if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+		// Not while typing, choosing from a list, or in a dialog: there Backspace and Delete belong to that control.
+		if (target.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [aria-modal="true"]')) return;
+		if (!get(editMode)) return;
 		if (e.key === 'Delete' || e.key === 'Backspace') {
 			e.preventDefault();
 			deleteSelected();
@@ -31,6 +35,8 @@
 </svelte:head>
 
 <AppShell onUploadClick={() => (uploadOpen = true)} />
+
+<FileNotice />
 
 <UploadModal
 	open={uploadOpen}

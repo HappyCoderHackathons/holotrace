@@ -2,10 +2,11 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
-import { isSweepId } from "../../opencv/candidates";
-import type { Component, Source } from "../../opencv/reconcile";
+import { isSweepId } from "../../src/lib/vision/candidates";
+import type { Component, Source } from "../../src/lib/vision/reconcile";
 import type { BoundingBox, RecognitionResult } from "../../src/lib/recognition";
 import { agrees, downstreamUse } from "./labels";
+import type { DiagramResult } from "./diagram";
 import type { LoadedPair } from "./load-pair";
 import { IMAGE_TYPES } from "./pairs";
 
@@ -57,7 +58,7 @@ export function printResult(loaded: LoadedPair, result: RecognitionResult, secon
     }
     console.log(`summary: ${predictions.length} regions; the model agrees with the local guess on ${agreeing}, differs on ${differing}, and ${noGuess} had no local guess`);
     console.log(`         ${usable} would become components with pins in the normalizer`);
-    console.log("  (= agrees, ! differs; local names are mapped to the classifier's labels in opencv/labels.ts)");
+    console.log("  (= agrees, ! differs; local names are mapped to the classifier's labels in src/lib/vision/labels.ts)");
 }
 
 // What each source of a merged component means, for the console and the report.
@@ -85,7 +86,7 @@ const escapeHtml = (text: string) => text.replace(/[&<>"]/g, (c) => ({ "&": "&am
 // A page with the image and a box on every region (green: the model agrees with the local guess, red: it
 // differs, orange: no local guess) and every page-wide detection (blue, dashed). With a merge, the boxes are
 // the merged components instead, coloured by where each came from.
-function htmlReport(loaded: LoadedPair, result: RecognitionResult, merged: Reconciled | null): string {
+function htmlReport(loaded: LoadedPair, result: RecognitionResult, merged: Reconciled | null, diagram: DiagramResult | null): string {
     const { pair, image, request } = loaded;
     const type = IMAGE_TYPES[extname(pair.imagePath).toLowerCase()];
     const stroke = Math.max(2, Math.round(Math.max(request.image_width, request.image_height) / 250));
@@ -115,6 +116,16 @@ function htmlReport(loaded: LoadedPair, result: RecognitionResult, merged: Recon
     for (const detection of result.detections) {
         parts.push(frame(detection.box, "#0c8599", ` stroke-dasharray="${stroke * 3} ${stroke * 2}"`), label(detection.box.x0 + stroke, detection.box.y1 + font, "#0c8599", `${detection.label} ${percent(detection.confidence)}`));
     }
+    // The wiring the diagram was built from: a line for each connection, a dot on every pin used, a ring on each junction.
+    const WIRE_COLOURS: Record<string, string> = { green: "#2f9e44", red: "#e03131", black: "#212529" };
+    let diagramNote = "";
+    if (diagram !== null) {
+        const { overlay, ...counts } = diagram.report;
+        for (const link of overlay.links) parts.push(`<line x1="${link.x1}" y1="${link.y1}" x2="${link.x2}" y2="${link.y2}" stroke="${WIRE_COLOURS[link.colour] ?? "#495057"}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${stroke * 2} ${stroke}" opacity="0.85"/>`);
+        for (const pin of overlay.pins) parts.push(`<circle cx="${pin.x}" cy="${pin.y}" r="${stroke * 1.6}" fill="#fff" stroke="#212529" stroke-width="${stroke / 2}"/><text x="${pin.x + stroke * 2}" y="${pin.y - stroke}" font-size="${font * 0.8}" fill="#212529" stroke="#fff" stroke-width="${stroke / 3}" paint-order="stroke">${escapeHtml(`${pin.part}:${pin.pin}`)}</text>`);
+        for (const node of overlay.nodes) parts.push(`<circle cx="${node.x}" cy="${node.y}" r="${stroke * 2.4}" fill="#fab005" stroke="#212529" stroke-width="${stroke / 2}"/><text x="${node.x + stroke * 3}" y="${node.y + stroke}" font-size="${font * 0.8}" fill="#212529" stroke="#fff" stroke-width="${stroke / 3}" paint-order="stroke">${escapeHtml(node.id)}</text>`);
+        diagramNote = `<br>Wiring: ${counts.parts} parts, ${counts.connections} connections, ${counts.nodes} junction nodes (dashed lines, pins as white dots, junctions as yellow dots).${counts.dangling.length ? ` Wires that stop at one part: ${escapeHtml(counts.dangling.map((d) => `${d.part}:${d.pin}`).join(", "))}.` : ""}${counts.loose.length ? ` Parts nothing is wired to: ${escapeHtml(counts.loose.join(", "))}.` : ""}`;
+    }
     const legend =
         merged !== null
             ? Object.entries(SOURCE_TEXT).map(([source, text]) => `<span style="color:${SOURCE_COLOR[source as Source]}">&#9632; ${escapeHtml(text)}</span>`).join(" &nbsp; ")
@@ -127,13 +138,13 @@ function htmlReport(loaded: LoadedPair, result: RecognitionResult, merged: Recon
 <style>body{font:14px system-ui;margin:1.5rem;background:#fafafa;color:#222}svg{max-width:100%;height:auto;background:#fff;border:1px solid #ccc}
 table{border-collapse:collapse;margin-top:1rem}td,th{border:1px solid #ccc;padding:.25rem .6rem;text-align:left}</style>
 <h1>${escapeHtml(pair.name)}</h1>
-<p>label set ${escapeHtml(result.label_set_version)} | classifier ${escapeHtml(result.classifier_version ?? "none")} | detector ${escapeHtml(result.detector_version ?? "none")}.<br>${legend}</p>
+<p>label set ${escapeHtml(result.label_set_version)} | classifier ${escapeHtml(result.classifier_version ?? "none")} | detector ${escapeHtml(result.detector_version ?? "none")}.<br>${legend}${diagramNote}</p>
 <svg viewBox="0 0 ${request.image_width} ${request.image_height}"><image href="data:${type};base64,${Buffer.from(image).toString("base64")}" width="${request.image_width}" height="${request.image_height}"/>${parts.join("")}</svg>
 <table>${head}${rows.join("")}</table>`;
 }
 
 // Writes the raw response, the merged components and/or the HTML report of a pair into `outDir`.
-export async function saveOutputs(outDir: string, loaded: LoadedPair, result: RecognitionResult, merged: Reconciled | null, what: { html: boolean; json: boolean }) {
+export async function saveOutputs(outDir: string, loaded: LoadedPair, result: RecognitionResult, merged: Reconciled | null, diagram: DiagramResult | null, what: { html: boolean; json: boolean }) {
     if (!what.html && !what.json) return;
     await mkdir(outDir, { recursive: true });
     if (what.json) {
@@ -142,7 +153,7 @@ export async function saveOutputs(outDir: string, loaded: LoadedPair, result: Re
     }
     if (what.html) {
         const file = join(outDir, `${loaded.pair.name}.report.html`);
-        await writeFile(file, htmlReport(loaded, result, merged));
+        await writeFile(file, htmlReport(loaded, result, merged, diagram));
         console.log(`report: ${file}`);
     }
 }

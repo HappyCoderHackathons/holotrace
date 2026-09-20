@@ -1,8 +1,8 @@
 // Finding the ink on a captured still image.
 
 import cv, { type Mat } from "opencv-ts";
-import { INK_BLOCK_SIZE, INK_ELBOW, INK_OFFSET_MAX, INK_OFFSET_MIN, INK_OFFSET_STEP } from "../config";
-import { state } from "../state";
+import { INK_BLOCK_SIZE, INK_ELBOW, INK_OFFSET_MAX, INK_OFFSET_MIN, INK_OFFSET_STEP } from "./config";
+import { state } from "./state";
 
 // Rounds up to the nearest odd whole number, as OpenCV kernels and block sizes require.
 export function odd(n: number): number {

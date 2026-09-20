@@ -1,6 +1,7 @@
 // Reading a pair from disk and checking it before it is sent.
 
 import { readFile } from "node:fs/promises";
+import { basename, dirname, extname, join } from "node:path";
 import { RECOGNITION_SCHEMA_VERSION, type RecognitionRequest } from "../../src/lib/recognition";
 import type { Pair } from "./pairs";
 
@@ -8,7 +9,26 @@ import type { Pair } from "./pairs";
 // limit in src-tauri/src/lib.rs).
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
-export type LoadedPair = { pair: Pair; image: Uint8Array; requestText: string; request: RecognitionRequest };
+export type LoadedPair = {
+    pair: Pair;
+    image: Uint8Array;
+    requestText: string;
+    request: RecognitionRequest;
+    // How the capture was scanned (see detectScaleFor in src/lib/vision/state.ts), from the `<image>.meta.json` the dev page
+    // saves beside the image, or null when there is none (the scale is then guessed from the image's width).
+    detectScale: number | null;
+};
+
+// The scale in the pair's meta file, if it has one.
+async function readDetectScale(pair: Pair): Promise<number | null> {
+    const file = join(dirname(pair.imagePath), `${basename(pair.imagePath, extname(pair.imagePath))}.meta.json`);
+    try {
+        const scale = (JSON.parse(await readFile(file, "utf8")) as { detectScale?: unknown }).detectScale;
+        return typeof scale === "number" && Number.isFinite(scale) && scale >= 1 ? scale : null;
+    } catch {
+        return null;
+    }
+}
 
 // The width and height of a PNG or JPEG, read from its header, or null if it is neither.
 export function imageSize(bytes: Uint8Array): { width: number; height: number } | null {
@@ -54,5 +74,5 @@ export async function loadPair(pair: Pair): Promise<{ loaded: LoadedPair } | { e
     if (image.length > MAX_UPLOAD_BYTES) return { error: `the image is ${(image.length / 1048576).toFixed(1)} MB and the service takes at most 20 MB` };
     const parsed = parseRequest(requestText, image);
     if ("error" in parsed) return { error: parsed.error };
-    return { loaded: { pair, image, requestText, request: parsed.request } };
+    return { loaded: { pair, image, requestText, request: parsed.request, detectScale: await readDetectScale(pair) } };
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isSweepId } from '$lib/vision/candidates';
 	import { ArrowLeft, Send, ScanSearch, Loader2, AlertTriangle } from 'lucide-svelte';
 	import type { OpenCvRecognitionInput } from '$lib/recognition';
 
@@ -11,6 +12,8 @@
 		error?: string | null;
 		onSend?: () => void;
 		onBack?: () => void;
+		/** Build the circuit from this on-device scan alone, without the model. */
+		onSkip?: () => void;
 	}
 
 	let {
@@ -19,10 +22,12 @@
 		sending = false,
 		error = null,
 		onSend = () => {},
-		onBack = () => {}
+		onBack = () => {},
+		onSkip = () => {}
 	}: Props = $props();
 
-	const regions = $derived(input?.request.regions ?? []);
+	// The sweep windows (see vision/candidates.ts) are for the model to judge, not boxes to review, so they are not drawn.
+	const regions = $derived((input?.request.regions ?? []).filter((region) => !isSweepId(region.id)));
 	const width = $derived(input?.request.image_width ?? 0);
 	const height = $derived(input?.request.image_height ?? 0);
 
@@ -145,6 +150,13 @@
 					below {Math.round(LOW_CONFIDENCE * 100)}%
 				</span>
 			</div>
+			<button
+				class="flex min-h-touch items-center gap-2 rounded-xl border border-chrome-600 px-4 text-sm font-medium text-chrome-200 transition-colors hover:bg-chrome-700 disabled:opacity-60"
+				disabled={sending}
+				onclick={onSkip}
+			>
+				Use scan only
+			</button>
 			<button
 				class="flex min-h-touch items-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
 				disabled={sending}

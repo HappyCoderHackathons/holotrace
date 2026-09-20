@@ -13,6 +13,7 @@
 	import SelectionActionBar from './SelectionActionBar.svelte';
 	import Sheet from './Sheet.svelte';
 	import ToolOptions from './ToolOptions.svelte';
+	import Properties from './Properties.svelte';
 	import { viewMode, editMode } from '$lib/stores/circuit';
 	import { activeSheet, closeSheet, openSheet, isCompact, sketchPanelOpen, partsPanelOpen } from '$lib/stores/ui';
 
@@ -109,6 +110,7 @@
 					open={$partsPanelOpen}
 					onToggle={(v) => partsPanelOpen.set(v)}
 				>
+					<Properties divider="bottom" />
 					<PartsPalette />
 				</SidePanel>
 			</div>

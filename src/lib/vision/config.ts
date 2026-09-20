@@ -45,6 +45,13 @@ export const MAX_CIRCUIT_FRACTION = 0.8;
 export const EDGE_MARGIN = 4;
 // How large a gap in the drawing still counts as one circuit (detection frame).
 export const BLOB_KERNEL = 15;
+// A still photo tries these gaps in turn, tightest first, and takes the first that gives a closed circuit: a tight
+// gap keeps two drawings that sit close together apart, while a single drawing's wires still join up. If none does,
+// the last (widest) result is used, as for the live camera.
+export const BLOB_KERNELS_STILL = [7, 11, BLOB_KERNEL];
+// Among several circuits in view, one nearer the middle of the frame counts for more: its area is weighted down by
+// this fraction at the corner of the frame (0 is no preference for the middle).
+export const CENTRE_PREFERENCE = 0.6;
 // A circuit must enclose a hole (a closed loop) at least this fraction of its box, so a
 // half-drawn or half-visible circuit is not captured.
 export const MIN_HOLE_FRACTION = 0.1;
@@ -172,10 +179,38 @@ export const SWEEP_TIGHT_PAD = 3;
 export const MERGE_MAX_SIZE_RATIO = 1.6;
 export const MERGE_SIZE_MIN_BOXES = 3;
 
+// ---- Tracing the wires between components (see wires.ts) ----
+
+// Wires are traced on a copy scaled so that a pen stroke is about this many pixels wide, which keeps big photos fast.
+export const WIRE_TRACE_STROKE_PIXELS = 3;
+// Gaps in a wire up to this many strokes wide are bridged (a hand-drawn wire is rarely unbroken).
+export const WIRE_CLOSE_STROKES = 2;
+// A piece of ink whose longer side is under this many strokes is a speck or text, not a wire.
+export const WIRE_MIN_STROKES = 4;
+// A wire touches a component if it comes within this many strokes of its box.
+export const WIRE_CONTACT_REACH_STROKES = 2;
+// Contacts of one wire on one component closer together than this many strokes are one contact.
+export const WIRE_CONTACT_MERGE_STROKES = 3;
+// Skeleton junction pixels closer together than this many strokes are one junction (a thick crossing makes several).
+export const WIRE_JUNCTION_MERGE_STROKES = 2.5;
+// A wire contact is tied to the wire's skeleton if it is within this many strokes of it.
+export const WIRE_ATTACH_STROKES = 3;
+// A dead-end twig off a junction shorter than this many strokes is a rough pen edge, not a wire.
+export const WIRE_SPUR_STROKES = 3;
+// Where a junction is judged: the ink within this many strokes of it, and if more than this fraction is ink it is a dot.
+export const WIRE_DOT_STROKES = 2;
+export const WIRE_DOT_FILL = 0.7;
+// The direction of a wire leaving a junction is read this many strokes out along it.
+export const WIRE_ARM_STROKES = 4;
+// How well the ink must match a textbook drawing before the way that drawing is turned is believed (0 to 1).
+export const ORIENTATION_MIN_SCORE = 0.5;
+
 // ---- Files the dev page downloads (also read by circuit-stuff/recognize.ts to pair them up) ----
 
 export const DOWNLOAD_JSON_NAME = "recognition.json";
 export const DOWNLOAD_IMAGE_NAME = "captured-circuit.png";
+// What the dev page also saves: the scale the capture was scanned at (see detectScaleFor), which the image alone cannot give.
+export const DOWNLOAD_META_NAME = "captured-circuit.meta.json";
 
 // ---- Preview colours ----
 

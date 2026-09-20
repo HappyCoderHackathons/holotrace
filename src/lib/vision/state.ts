@@ -1,8 +1,9 @@
 // State shared between the live camera stage and the still-image stage.
 
 import type { Mat } from "opencv-ts";
-import type { Rect } from "./geometry/boxes";
-import type { Match } from "./vision/classify";
+import type { Rect } from "./boxes";
+import type { Match } from "./classify";
+import { DETECT_WIDTH } from "./config";
 
 // What the still-image stage works out once, so each preview step can reuse it.
 export type StillAnalysis = {
@@ -27,6 +28,10 @@ export const state = {
     // Only set while a still is being processed.
     analysis: null as StillAnalysis | null,
 };
+
+// How many times larger an image is than the detection frame, which the pixel sizes in config.ts are measured on
+// (never below 1). The one place this is worked out.
+export const detectScaleFor = (width: number): number => Math.max(1, width / DETECT_WIDTH);
 
 // Forgets the last capture so a new one can be taken.
 export function clearCapture() {
