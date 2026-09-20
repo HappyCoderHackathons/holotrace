@@ -7,6 +7,12 @@ Holotrace turns a photograph of a hand-drawn circuit into an interactive circuit
 Install [Bun](https://bun.sh/), Rust, and the platform dependencies required by [Tauri](https://v2.tauri.app/start/prerequisites/), then run:
 
 ```console
+# cwd is project root
+cd src-tauri
+cargo build
+```
+```console
+# cwd is project root
 bun install
 bun run tauri dev
 ```
