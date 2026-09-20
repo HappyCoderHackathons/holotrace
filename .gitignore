@@ -17,6 +17,9 @@ vite.config.ts.timestamp-*
 # Tauri and Rust build output
 target/
 src-tauri/target/
+src-tauri/gen/android/keystore.properties
+*.jks
+*.keystore
 
 # Environment files and local secrets
 .env
