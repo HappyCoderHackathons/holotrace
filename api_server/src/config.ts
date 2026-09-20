@@ -1,4 +1,5 @@
 const DEFAULT_PORT = 8001;
+const DEFAULT_BIND_HOST = "127.0.0.1";
 
 export function getTrustedOrigins(): string[] {
   return (process.env.AUTH_TRUSTED_ORIGINS ?? "")
@@ -42,4 +43,8 @@ export function getServerPort(): number {
   }
 
   return port;
+}
+
+export function getServerHost(): string {
+  return process.env.BIND_HOST?.trim() || DEFAULT_BIND_HOST;
 }

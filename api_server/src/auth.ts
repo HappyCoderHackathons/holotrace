@@ -15,6 +15,11 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   trustedOrigins: getTrustedOrigins(),
+  advanced: {
+    ipAddress: {
+      ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"],
+    },
+  },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,

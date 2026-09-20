@@ -1,0 +1,15 @@
+{
+    auto_https disable_redirects
+}
+
+https://api.ifyousmellityouwilleventuallydie.tech:8000 {
+    tls internal
+
+    handle /api/auth/* {
+        reverse_proxy 127.0.0.1:8002
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:8001
+    }
+}

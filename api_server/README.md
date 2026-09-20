@@ -72,4 +72,5 @@ src/cors.ts            Credentialed browser-request CORS handling
 src/db/auth-schema.ts  Better Auth's isolated Drizzle schema
 src/db/index.ts        PostgreSQL pool and Drizzle client
 src/db/schema.ts       Existing simplified application schema
+deploy/                User service and Caddy routing examples
 ```
