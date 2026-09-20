@@ -23,7 +23,10 @@ UUIDs use PostgreSQL's `gen_random_uuid()`. Status-like values use `CHECK` const
 
 ## Accounts, workspaces, and projects
 
-Authentication remains external. `auth_subject` holds the stable identifier issued by the chosen identity provider. The client must access these records through the Holotrace API rather than connecting directly to PostgreSQL.
+Authentication is currently provided by a self-hosted Better Auth service. Better Auth owns its tables in a separate
+PostgreSQL `auth` schema and its user ID is the stable authenticated subject. In the planned full application schema,
+`auth_subject` links application-owned records to that identifier without copying credentials into application
+tables. The client must access these records through the Holotrace API rather than connecting directly to PostgreSQL.
 
 ```sql
 CREATE TABLE holotrace.app_user (

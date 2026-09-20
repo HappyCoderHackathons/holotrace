@@ -18,6 +18,11 @@ Object storage   Workers and services
 
 Clients should access data through an authenticated API. Database credentials must not be embedded in the web application or a distributed Tauri binary.
 
+The current authentication API uses Better Auth with Drizzle and keeps its `user`, `account`, `session`, and
+`verification` records in a separate PostgreSQL `auth` schema. The Python model API remains a separate service and
+must not receive user passwords or database credentials. The simplified application `users` table currently remains
+unchanged; it is not the credential source for Better Auth.
+
 ## Proposed data areas
 
 ### Component catalog
