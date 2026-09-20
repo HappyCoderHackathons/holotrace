@@ -21,6 +21,13 @@
 	let dragOver = $state(false);
 	let error = $state<string | null>(null);
 	let cameraOpen = $state(false);
+	type RecognitionModule = typeof import('$lib/opencvRecognition');
+	let recognitionModule: Promise<RecognitionModule> | null = null;
+
+	function loadRecognitionModule(): Promise<RecognitionModule> {
+		recognitionModule ??= import('$lib/opencvRecognition');
+		return recognitionModule;
+	}
 
 	/*
 	 * The on-device pass and the model call used to run as one step. They are
@@ -38,7 +45,13 @@
 	 */
 	let cameraAvailable = $state(false);
 	$effect(() => {
-		if (open) canOfferCapture().then((available) => (cameraAvailable = available));
+		if (open) {
+			canOfferCapture().then((available) => (cameraAvailable = available));
+			// Start the large OpenCV module while the user is choosing a source.
+			void loadRecognitionModule().catch(() => {
+				recognitionModule = null;
+			});
+		}
 	});
 
 	async function handleFile(file: File | undefined | null) {
@@ -52,7 +65,7 @@
 		processing = true;
 		try {
 			const dataUrl = await readFileAsDataUrl(file);
-			const { prepareRecognitionInput } = await import('$lib/opencvRecognition');
+			const { prepareRecognitionInput } = await loadRecognitionModule();
 			sourceDataUrl = dataUrl;
 			prepared = await prepareRecognitionInput(dataUrl);
 		} catch (cause) {
@@ -223,14 +236,13 @@
 						</div>
 					{/if}
 
-					<button
+					<label
 						class="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-colors"
 						class:py-8={cameraAvailable}
 						class:py-12={!cameraAvailable}
 						class:border-accent={dragOver}
 						class:bg-accent-subtle={dragOver}
 						class:border-chrome-500={!dragOver}
-						onclick={() => fileInput?.click()}
 						ondragover={(e) => {
 							e.preventDefault();
 							dragOver = true;
@@ -249,14 +261,15 @@
 							</p>
 							<p class="mt-1 text-xs text-chrome-400">Hand-drawn sketch of your circuit, JPG or PNG</p>
 						</div>
-					</button>
-					<input
-						bind:this={fileInput}
-						type="file"
-						accept="image/*"
-						class="hidden"
-						onchange={(e) => handleFile(e.currentTarget.files?.[0])}
-					/>
+						<!-- Native label activation is reliable in WKWebView; clicking a display:none input is not. -->
+						<input
+							bind:this={fileInput}
+							type="file"
+							accept="image/*"
+							class="sr-only"
+							onchange={(e) => handleFile(e.currentTarget.files?.[0])}
+						/>
+					</label>
 
 					{#if error}
 						<div
