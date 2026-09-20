@@ -19,7 +19,7 @@ on:
       - tailwind.config.js
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-${{ github.ref }}
@@ -78,6 +78,16 @@ jobs:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: bun run android:build -- --debug --apk
 
+      - name: Prepare public Android package
+        run: |
+          mkdir -p release-assets
+          apk=$(find src-tauri/gen/android/app/build/outputs/apk -type f -name "*.apk" -print -quit)
+          if [ -z "$apk" ]; then
+            echo "Tauri did not produce an Android APK." >&2
+            exit 1
+          fi
+          cp "$apk" release-assets/holotrace-android-debug.apk
+
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
@@ -85,3 +95,21 @@ jobs:
           path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish latest Android build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: android-latest
+          target_commitish: ${{ github.sha }}
+          name: Latest Holotrace Android build
+          body: |
+            Automated development build from `main`.
+
+            Source commit: `${{ github.sha }}`
+
+            This APK uses Android debug signing and is intended for testing current development builds.
+          prerelease: true
+          make_latest: false
+          files: release-assets/holotrace-android-debug.apk
+          fail_on_unmatched_files: true

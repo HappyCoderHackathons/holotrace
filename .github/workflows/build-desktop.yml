@@ -21,7 +21,7 @@ on:
       - tailwind.config.js
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: desktop-${{ github.ref }}
@@ -56,6 +56,16 @@ jobs:
       - name: Build desktop app
         run: bun run tauri build
 
+      - name: Prepare public Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release-assets -Force | Out-Null
+          $installer = Get-ChildItem src-tauri/target/release/bundle -Recurse -Filter "*-setup.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Tauri did not produce a Windows setup executable."
+          }
+          Copy-Item -LiteralPath $installer.FullName -Destination release-assets/holotrace-windows-x64-setup.exe
+
       - name: Upload desktop packages
         uses: actions/upload-artifact@v4
         with:
@@ -63,3 +73,21 @@ jobs:
           path: src-tauri/target/release/bundle/**
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish latest Windows build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: desktop-latest
+          target_commitish: ${{ github.sha }}
+          name: Latest Holotrace Windows build
+          body: |
+            Automated development build from `main`.
+
+            Source commit: `${{ github.sha }}`
+
+            This installer is currently unsigned. Your browser or Windows may show a warning before installation.
+          prerelease: true
+          make_latest: false
+          files: release-assets/holotrace-windows-x64-setup.exe
+          fail_on_unmatched_files: true
