@@ -86,7 +86,7 @@ const { components } = reconcile(tightenRegions(ink, request.regions), result.re
 | `tightenRegions(ink, regions)` in [`vision/sweep.ts`](sweep.ts) | ink `Mat`, request regions | the regions with each sweep window shrunk to its ink |
 | `reconcile(regions, judgements)` in [`reconcile.ts`](reconcile.ts) | request regions, the model's `regions` | `{ components, dropped }` (no OpenCV) |
 | `agrees`, `toClassifierLabel`, `isComponentLabel` in [`labels.ts`](labels.ts) | names and labels | how this stage's names map to the classifier's labels (no OpenCV) |
-| `traceWires(ink, boxes, thickness)` in [`wires.ts`](wires.ts) | ink `Mat`, the final components' boxes, stroke width | `Net[]`: each drawn wire with the components it touches (where, in pixels of the ink) and a point on the wire |
+| `traceWires(ink, boxes, thickness)` in [`wires.ts`](wires.ts) | ink `Mat`, the final components' boxes, stroke width | `WireGraph`: the contacts (where a wire meets a component, in pixels of the ink), the junction points, and the links between them |
 | `orientation(ink, box, symbols)` in [`classify.ts`](classify.ts) | ink `Mat`, a box, symbol names (`symbolsFor(label)` in [`labels.ts`](labels.ts)) | `{ rotation, mirrored, score }`: how the symbol is turned in the box, in the order the editor applies them |
 | `cv` in [`cv.ts`](cv.ts) | | the one place the dev page and the scripts import OpenCV from, so they share the app's single copy of `opencv-ts` |
 
@@ -145,9 +145,9 @@ Rules for the files here: they import each other by **relative path only** (no `
 
 ## Wires
 
-`traceWires` finds which components each drawn wire joins, as **topology**, not a drawing. Every final component's box is wiped out of the ink, so what remains is wire; ink that touches is one wire (a junction dot joins the wires that meet at it), and each place a wire comes up to a component's box is a contact. It works on a copy scaled so a stroke is a few pixels wide, so a big photo costs no more than a small one, and every number is in `config.ts` (`WIRE_*`). What is built from the result (the parts, the connections, the junction nodes) is in [`../diagram`](../diagram/README.md).
+`traceWires` finds which components each drawn wire joins, as **topology**, not a drawing. Every final component's box is wiped out of the ink, so what remains is wire, and that is thinned to a one-pixel skeleton. Where lines meet is judged one place at a time: a dot or a T is a **junction** (a node), four lines with no dot are two wires **crossing** and each goes straight through, and two lines are just a bend. Each place a wire comes up to a component's box is a contact. The result is a `WireGraph`: contacts, junction points, and links between neighbours along a wire (contact to junction, junction to junction, contact to contact), so a bus is a chain of short links, not one hub. It works on a copy scaled so a stroke is a few pixels wide, so a big photo costs no more than a small one, and every number is in `config.ts` (`WIRE_*`). What is built from the result is in [`../diagram`](../diagram/README.md).
 
-Known limit: a wire that crosses another **without a dot** is joined to it, because touching ink is one wire. On a dense bus (a row of gates sharing rails) that merges most of the circuit into one net; the editor is where that gets fixed.
+Known limits: a crossing drawn with a dot is a junction, and a crossing where the pen bulged into a blob can look like one; junction points sit on the skeleton, not exactly where a person would put them. The editor is where these get fixed.
 
 ## The dev page and the scripts
 

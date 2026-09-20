@@ -1,5 +1,6 @@
 import type { RecognitionResult } from './recognition';
 
+/** Each one is a part in `diagram/parts.ts`, named without the `holotrace-` prefix. */
 export type ComponentType =
 	| 'battery'
 	| 'led'
@@ -7,7 +8,19 @@ export type ComponentType =
 	| 'switch'
 	| 'capacitor'
 	| 'pushbutton'
-	| 'potentiometer';
+	| 'potentiometer'
+	| 'diode'
+	| 'lamp'
+	| 'ac-source'
+	| 'ground'
+	| 'terminal'
+	| 'and'
+	| 'or'
+	| 'nand'
+	| 'nor'
+	| 'xor'
+	| 'not'
+	| 'generic';
 
 export interface Pin {
 	id: string;
@@ -31,15 +44,26 @@ export interface CircuitComponent {
 	pins: Pin[];
 }
 
+/** One end of a wire: a component's pin, or a junction node where wires meet. */
+export type WireEnd = { componentId: string; pinId: string } | { nodeId: string };
+
+/** A junction: a point on the canvas that wires end at, so a wire can join another wire. */
+export interface WireNode {
+	id: string;
+	x: number;
+	y: number;
+}
+
+/**
+ * A wire says only what it connects. The canvas routes the line at right angles
+ * between its ends; `waypoints` are corners the user has pulled it through.
+ */
 export interface Wire {
 	id: string;
-	fromComponentId: string;
-	fromPinId: string;
-	toComponentId: string;
-	toPinId: string;
+	from: WireEnd;
+	to: WireEnd;
 	color: string;
 	style: 'solid' | 'dashed';
-	/** optional user-added waypoints for routing */
 	waypoints?: { x: number; y: number }[];
 }
 
@@ -64,5 +88,6 @@ export interface SimulationState {
 export interface CircuitState {
 	components: CircuitComponent[];
 	wires: Wire[];
+	nodes: WireNode[];
 	detection: DetectionInfo;
 }
