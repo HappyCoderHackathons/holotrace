@@ -1,17 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { Download } from 'lucide-svelte';
 	import Canvas from './Canvas.svelte';
-	import { canvasZoom, canvasPan } from '$lib/stores/circuit';
-
-	onMount(() => {
-		canvasZoom.set(0.8);
-		canvasPan.set({ x: 80, y: 24 });
-		return () => {
-			canvasZoom.set(1);
-			canvasPan.set({ x: 0, y: 0 });
-		};
-	});
 
 	const cols = ['1', '2', '3', '4', '5', '6'];
 	const rows = ['A', 'B', 'C', 'D', 'E'];
