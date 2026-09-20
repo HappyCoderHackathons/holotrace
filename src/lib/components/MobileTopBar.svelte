@@ -1,10 +1,23 @@
 <script lang="ts">
-	import { Cpu, Image, SlidersHorizontal, Play, Square, Undo2, Redo2 } from 'lucide-svelte';
+	import { Cpu, Image, SlidersHorizontal, Play, Square, Undo2, Redo2, LogIn, LogOut } from 'lucide-svelte';
 	import { viewMode, undo, redo, canUndo, canRedo } from '$lib/stores/circuit';
 	import { openSheet } from '$lib/stores/ui';
 	import { simulationRunning, startSimulation, stopSimulation } from '$lib/stores/simulation';
+	import { authClient } from '$lib/authClient';
 
 	const onCanvas = $derived($viewMode === 'circuit');
+	const session = authClient.useSession();
+	let { location = $bindable('') } = $props();
+
+	async function toggleAuthentication() {
+		if ($session.data) {
+			await authClient.signOut();
+			location = '/';
+			return;
+		}
+
+		location = '/login';
+	}
 </script>
 
 <header
@@ -19,6 +32,18 @@
 	</div>
 
 	<div class="ml-auto flex items-center gap-0.5">
+		<button
+			class="chrome-icon-btn"
+			aria-label={$session.data ? 'Log out' : 'Log in'}
+			onclick={toggleAuthentication}
+		>
+			{#if $session.data}
+				<LogOut size={18} />
+			{:else}
+				<LogIn size={18} />
+			{/if}
+		</button>
+
 		{#if onCanvas}
 			<button class="chrome-icon-btn" aria-label="Undo" disabled={!$canUndo} onclick={undo}>
 				<Undo2 size={18} />

@@ -1,15 +1,37 @@
 <script lang="ts">
-    let name = $state<string>("");
-    let password = $state<string>("");
+    import { authClient } from '$lib/authClient';
 
-    let { location = $bindable("") } = $props();
+    let username = $state('');
+    let password = $state('');
+    let errorMessage = $state('');
+    let isSubmitting = $state(false);
+
+    let { location = $bindable('') } = $props();
 
     function gotoHome() {
-        location = "/"
+        location = '/';
     }
 
-    async function handleLogin() {
+    async function handleLogin(event: SubmitEvent) {
+        event.preventDefault();
+        errorMessage = '';
+        isSubmitting = true;
 
+        try {
+            const result = await authClient.signIn.username({ username, password });
+
+            if (result.error) {
+                errorMessage = result.error.message ?? 'Unable to sign in.';
+                return;
+            }
+
+            password = '';
+            gotoHome();
+        } catch {
+            errorMessage = 'Unable to reach the authentication service.';
+        } finally {
+            isSubmitting = false;
+        }
     }
 </script>
 
@@ -32,11 +54,13 @@
         <div class="mb-3">
             <label for="name" class="form-label">Username</label>
             <input
-                type="username"
+                type="text"
                 class="form-control"
-                id="name"
-                bind:value={name}
-                placeholder="Enter Username or Email"
+                id="username"
+                name="username"
+                autocomplete="username"
+                bind:value={username}
+                placeholder="Enter username"
                 required
             />
         </div>
@@ -47,16 +71,26 @@
                 type="password"
                 class="form-control"
                 id="password"
+                name="password"
+                autocomplete="current-password"
                 bind:value={password}
                 placeholder="Password"
                 required
             />
         </div>
 
-        <button type="submit" class="btn btn-primary w-100">Login</button>
+        {#if errorMessage}
+            <p class="mt-3 text-sm text-red-400" role="alert">{errorMessage}</p>
+        {/if}
+
+        <button type="submit" class="btn btn-primary w-100" disabled={isSubmitting}>
+            {isSubmitting ? 'Signing in…' : 'Login'}
+        </button>
 
         <div class="mt-3 text-center">
-            <a href="/register">Don't have an account? Sign up</a>
+            <button type="button" class="text-accent hover:underline" onclick={() => location = '/register'}>
+                Don't have an account? Sign up
+            </button>
         </div>
     </form>
 </div>

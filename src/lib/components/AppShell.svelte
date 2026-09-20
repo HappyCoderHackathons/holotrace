@@ -17,6 +17,7 @@
 	import { activeSheet, closeSheet, openSheet, isCompact, sketchPanelOpen, partsPanelOpen } from '$lib/stores/ui';
 
     import LoginPage from '$lib/components/LoginPage.svelte'
+    import RegisterPage from '$lib/components/RegisterPage.svelte'
 
     let page_location = $state<string>("/");
 
@@ -34,11 +35,13 @@
 
 {#if page_location === "/login"}
     <LoginPage bind:location={page_location} />
+{:else if page_location === "/register"}
+    <RegisterPage bind:location={page_location} />
 {:else}
     {#if $isCompact}
         <!-- Compact: the canvas owns the screen, everything else is a sheet or a bar. -->
         <div class="flex h-[100dvh] flex-col bg-chrome-900">
-            <MobileTopBar />
+            <MobileTopBar bind:location={page_location} />
 
             <main class="relative min-h-0 flex-1 overflow-hidden">
                 {#if $viewMode === 'circuit'}
