@@ -10,6 +10,10 @@
 		editable?: boolean;
 		showLabels?: boolean;
 		schematic?: boolean;
+		/** Touch or pen input: pins get finger-sized invisible hit areas. */
+		coarse?: boolean;
+		/** Pin currently waiting for a partner tap, if it belongs to this component. */
+		armedPinId?: string | null;
 		onpointerdown?: (event: PointerEvent) => void;
 		onclick?: (event: MouseEvent) => void;
 		onPinPointerDown?: (event: PointerEvent, pinId: string) => void;
@@ -24,6 +28,8 @@
 		editable = false,
 		showLabels = true,
 		schematic = false,
+		coarse = false,
+		armedPinId = null,
 		onpointerdown = () => {},
 		onclick = () => {},
 		onPinPointerDown = () => {},
@@ -31,6 +37,9 @@
 	}: Props = $props();
 
 	const mirrorScale = $derived(component.mirrored ? -1 : 1);
+	/** Visible dot stays small; the hit area is what grows for fingers. */
+	const pinRadius = $derived(editable ? 6 : 3);
+	const hitRadius = $derived(coarse ? 22 : editable ? 10 : 6);
 </script>
 
 <g
@@ -50,7 +59,7 @@
 	}}
 >
 	{#if selected}
-		<rect x="-38" y="-24" width="76" height="48" rx="10" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 3" />
+		<rect x="-38" y="-24" width="76" height="48" rx="10" fill="none" stroke="#2f6bff" stroke-width="1.5" stroke-dasharray="4 3" />
 	{/if}
 	<ComponentGlyph type={component.type} color={component.color} {lit} {active} {schematic} />
 
@@ -89,23 +98,39 @@
 	{/if}
 
 	{#each component.pins as pin (pin.id)}
-		<circle
-			cx={pin.x}
-			cy={pin.y}
-			r={editable ? 6 : 3}
-			fill={editable ? '#64748b' : '#9aa5b1'}
-			class:cursor-crosshair={editable}
-			class="pin-dot"
-			data-pin-id={pin.id}
-			role="presentation"
-			onpointerdown={(event) => {
-				event.stopPropagation();
-				onPinPointerDown(event, pin.id);
-			}}
-			onpointerup={(event) => {
-				event.stopPropagation();
-				onPinPointerUp(event, pin.id);
-			}}
-		/>
+		{@const armed = armedPinId === pin.id}
+		<g class="pin" data-pin-id={pin.id}>
+			{#if armed}
+				<circle cx={pin.x} cy={pin.y} r="13" fill="#2f6bff" opacity="0.35" class="pin-armed" pointer-events="none" />
+			{/if}
+			<circle
+				cx={pin.x}
+				cy={pin.y}
+				r={armed ? pinRadius + 2 : pinRadius}
+				fill={armed ? '#2f6bff' : editable ? '#6b7685' : '#8b95a3'}
+				pointer-events="none"
+			/>
+			<!--
+				Transparent target sized for the pointer in use. Drawn after the dot
+				so it receives the press, and kept out of the a11y tree because the
+				parent component already exposes a control.
+			-->
+			<circle
+				cx={pin.x}
+				cy={pin.y}
+				r={hitRadius}
+				fill="transparent"
+				class:cursor-crosshair={editable}
+				role="presentation"
+				onpointerdown={(event) => {
+					event.stopPropagation();
+					onPinPointerDown(event, pin.id);
+				}}
+				onpointerup={(event) => {
+					event.stopPropagation();
+					onPinPointerUp(event, pin.id);
+				}}
+			/>
+		</g>
 	{/each}
 </g>
