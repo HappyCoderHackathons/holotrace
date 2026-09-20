@@ -6,15 +6,17 @@
 		Redo2,
 		RotateCw,
 		FlipHorizontal2,
-		MousePointer2,
 		Play,
 		Square,
 		Pencil,
 		Eye,
-		Cable
+		Cable,
+		SlidersHorizontal,
+		Check
 	} from 'lucide-svelte';
 	import {
 		editMode,
+		editTool,
 		selectedIds,
 		selectedWireIds,
 		wireColor,
@@ -27,13 +29,20 @@
 		rotateComponent,
 		mirrorComponent,
 		setWireColorFor,
-		setWireStyleFor,
-		circuit,
-		editTool
+		setWireStyleFor
 	} from '$lib/stores/circuit';
+	import { isNarrow } from '$lib/stores/ui';
 	import { simulationRunning, startSimulation, stopSimulation } from '$lib/stores/simulation';
+	import ToolOptions from './ToolOptions.svelte';
 
-	const wireColors = ['#22c55e', '#111827', '#ef4444', '#2563eb', '#f59e0b'];
+	const wireColors = [
+		{ value: '#16a34a', label: 'Green' },
+		{ value: '#101418', label: 'Black' },
+		{ value: '#ef4444', label: 'Red' },
+		{ value: '#f59e0b', label: 'Amber' }
+	];
+
+	let optionsOpen = $state(false);
 
 	const hasComponentSelection = $derived($selectedIds.size > 0);
 	const hasWireSelection = $derived($selectedWireIds.size > 0);
@@ -43,26 +52,31 @@
 
 	function applyWireColor(color: string) {
 		wireColor.set(color);
-		if (hasWireSelection) {
-			$selectedWireIds.forEach((id) => setWireColorFor(id, color));
-		}
+		$selectedWireIds.forEach((id) => setWireColorFor(id, color));
 	}
 
 	function applyWireStyle(style: 'solid' | 'dashed') {
 		wireStyle.set(style);
-		if (hasWireSelection) {
-			$selectedWireIds.forEach((id) => setWireStyleFor(id, style));
-		}
+		$selectedWireIds.forEach((id) => setWireStyleFor(id, style));
 	}
 </script>
 
-<div class="flex h-12 flex-shrink-0 items-center gap-1 border-b border-surface-200 bg-surface-50 px-3 shadow-toolbar">
-	<div class="flex items-center gap-1 rounded-md bg-white p-0.5 border border-surface-200">
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Escape') optionsOpen = false;
+	}}
+/>
+
+<div
+	class="relative flex h-12 flex-shrink-0 items-center gap-1 border-b border-chrome-600 bg-chrome-800 px-3"
+>
+	<!-- Edit / View is the mode switch everything else depends on, so it leads. -->
+	<div class="flex items-center gap-0.5 rounded-lg bg-chrome-950 p-0.5">
 		<button
-			class="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium"
+			class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors"
 			class:bg-accent={$editMode}
 			class:text-white={$editMode}
-			class:text-ink-700={!$editMode}
+			class:text-chrome-300={!$editMode}
 			aria-pressed={$editMode}
 			onclick={() => editMode.set(true)}
 		>
@@ -70,10 +84,10 @@
 			Edit
 		</button>
 		<button
-			class="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium"
+			class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors"
 			class:bg-accent={!$editMode}
 			class:text-white={!$editMode}
-			class:text-ink-700={$editMode}
+			class:text-chrome-300={$editMode}
 			aria-pressed={!$editMode}
 			onclick={() => editMode.set(false)}
 		>
@@ -82,17 +96,13 @@
 		</button>
 	</div>
 
-	<div class="mx-2 h-6 w-px bg-surface-200"></div>
+	<span class="mx-1.5 h-6 w-px bg-chrome-600"></span>
 
-	<button
-		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
-		aria-label="Copy"
-		disabled={!hasComponentSelection}
-	>
+	<button class="chrome-icon-btn" aria-label="Duplicate" disabled={!hasComponentSelection}>
 		<Copy size={16} />
 	</button>
 	<button
-		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
+		class="chrome-icon-btn"
 		aria-label="Delete"
 		disabled={!hasComponentSelection && !hasWireSelection}
 		onclick={deleteSelected}
@@ -100,69 +110,94 @@
 		<Trash2 size={16} />
 	</button>
 
-	<div class="mx-1 h-6 w-px bg-surface-200"></div>
+	<span class="mx-1.5 h-6 w-px bg-chrome-600"></span>
 
-	<button
-		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
-		aria-label="Undo"
-		disabled={!$canUndo}
-		onclick={undo}
-	>
+	<button class="chrome-icon-btn" aria-label="Undo" disabled={!$canUndo} onclick={undo}>
 		<Undo2 size={16} />
 	</button>
-	<button
-		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
-		aria-label="Redo"
-		disabled={!$canRedo}
-		onclick={redo}
-	>
+	<button class="chrome-icon-btn" aria-label="Redo" disabled={!$canRedo} onclick={redo}>
 		<Redo2 size={16} />
 	</button>
 
-	<div class="mx-1 h-6 w-px bg-surface-200"></div>
+	<span class="mx-1.5 h-6 w-px bg-chrome-600"></span>
 
 	<button
-		class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium hover:bg-surface-100"
+		class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:text-chrome-500"
 		class:bg-accent={$editTool === 'wire'}
 		class:text-white={$editTool === 'wire'}
-		class:text-ink-600={$editTool !== 'wire'}
+		class:text-chrome-200={$editTool !== 'wire'}
+		class:hover:bg-chrome-700={$editTool !== 'wire'}
 		disabled={!$editMode}
-		aria-label="Wire tool"
 		aria-pressed={$editTool === 'wire'}
+		title={$editMode ? 'Draw wires between pins' : 'Switch to Edit mode to draw wires'}
 		onclick={() => editTool.set($editTool === 'wire' ? 'select' : 'wire')}
 	>
 		<Cable size={15} />
 		Wire
 	</button>
 
-	<div class="flex items-center gap-1">
-		{#each wireColors as color (color)}
-			<button
-				class="h-6 w-6 rounded-full border-2 transition-transform hover:scale-110"
-				class:border-ink-900={$wireColor === color}
-				class:border-transparent={$wireColor !== color}
-				style={`background-color:${color}`}
-				aria-label={`Wire color ${color}`}
-				aria-pressed={$wireColor === color}
-				onclick={() => applyWireColor(color)}
-			></button>
-		{/each}
-	</div>
+	{#if $isNarrow}
+		<!--
+			Below ~1100px the colour swatches and style select no longer fit
+			alongside the transform controls, so they move into a popover.
+		-->
+		<button
+			class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-chrome-200 transition-colors hover:bg-chrome-700"
+			aria-expanded={optionsOpen}
+			aria-haspopup="dialog"
+			onclick={() => (optionsOpen = !optionsOpen)}
+		>
+			<SlidersHorizontal size={15} />
+			<span
+				class="h-3.5 w-3.5 rounded-full border border-chrome-500"
+				style={`background-color:${$wireColor}`}
+			></span>
+		</button>
 
-	<select
-		class="ml-1 rounded-md border border-surface-200 bg-white px-2 py-1.5 text-xs text-ink-700"
-		value={$wireStyle}
-		aria-label="Wire style"
-		onchange={(e) => applyWireStyle(e.currentTarget.value as 'solid' | 'dashed')}
-	>
-		<option value="solid">— Solid</option>
-		<option value="dashed">┄ Dashed</option>
-	</select>
+		{#if optionsOpen}
+			<div class="fixed inset-0 z-sheet" role="presentation" onclick={() => (optionsOpen = false)}></div>
+			<div
+				class="absolute left-1/2 top-[52px] z-sheet w-64 -translate-x-1/2 rounded-xl border border-chrome-600 bg-chrome-800 p-4 shadow-raised"
+				role="dialog"
+				aria-label="Wire options"
+			>
+				<ToolOptions size="compact" />
+			</div>
+		{/if}
+	{:else}
+		<div class="flex items-center gap-1.5 pl-1" role="group" aria-label="Wire colour">
+			{#each wireColors as color (color.value)}
+				<button
+					class="flex h-6 w-6 items-center justify-center rounded-full border-2 transition-transform hover:scale-110"
+					class:border-chrome-100={$wireColor === color.value}
+					class:border-transparent={$wireColor !== color.value}
+					style={`background-color:${color.value}`}
+					aria-label={`${color.label} wire`}
+					aria-pressed={$wireColor === color.value}
+					onclick={() => applyWireColor(color.value)}
+				>
+					{#if $wireColor === color.value}
+						<Check size={13} class="text-white drop-shadow" />
+					{/if}
+				</button>
+			{/each}
+		</div>
 
-	<div class="mx-1 h-6 w-px bg-surface-200"></div>
+		<select
+			class="ml-1 rounded-lg border border-chrome-600 bg-chrome-900 px-2 py-1.5 text-xs text-chrome-200"
+			value={$wireStyle}
+			aria-label="Wire style"
+			onchange={(e) => applyWireStyle(e.currentTarget.value as 'solid' | 'dashed')}
+		>
+			<option value="solid">— Solid</option>
+			<option value="dashed">┄ Dashed</option>
+		</select>
+	{/if}
+
+	<span class="mx-1.5 h-6 w-px bg-chrome-600"></span>
 
 	<button
-		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
+		class="chrome-icon-btn"
 		aria-label="Rotate"
 		disabled={!selectedComponentId || !$editMode}
 		onclick={() => selectedComponentId && rotateComponent(selectedComponentId)}
@@ -170,7 +205,7 @@
 		<RotateCw size={16} />
 	</button>
 	<button
-		class="rounded-md p-2 text-ink-500 hover:bg-surface-100 disabled:opacity-30"
+		class="chrome-icon-btn"
 		aria-label="Mirror"
 		disabled={!selectedComponentId || !$editMode}
 		onclick={() => selectedComponentId && mirrorComponent(selectedComponentId)}
@@ -182,19 +217,19 @@
 
 	{#if $simulationRunning}
 		<button
-			class="flex items-center gap-1.5 rounded-lg bg-ink-900 px-4 py-1.5 text-sm font-semibold text-white hover:bg-ink-700"
+			class="flex items-center gap-1.5 rounded-lg bg-chrome-700 px-4 py-1.5 text-sm font-semibold text-chrome-100 transition-colors hover:bg-chrome-600"
 			onclick={stopSimulation}
 		>
-			<Square size={13} fill="white" />
-			Stop Simulation
+			<Square size={12} fill="currentColor" />
+			Stop
 		</button>
 	{:else}
 		<button
-			class="flex items-center gap-1.5 rounded-lg bg-live px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-700"
+			class="flex items-center gap-1.5 rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
 			onclick={startSimulation}
 		>
-			<Play size={13} fill="white" />
-			Start Simulation
+			<Play size={12} fill="currentColor" />
+			Run simulation
 		</button>
 	{/if}
 </div>

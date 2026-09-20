@@ -1,14 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import TopNav from '$lib/components/TopNav.svelte';
-	import Toolbar from '$lib/components/Toolbar.svelte';
-	import LeftSidebar from '$lib/components/LeftSidebar.svelte';
-	import RightSidebar from '$lib/components/RightSidebar.svelte';
-	import Canvas from '$lib/components/Canvas.svelte';
-	import SchematicView from '$lib/components/SchematicView.svelte';
-	import ComponentsTable from '$lib/components/ComponentsTable.svelte';
+	import AppShell from '$lib/components/AppShell.svelte';
 	import UploadModal from '$lib/components/UploadModal.svelte';
-	import { viewMode, editMode, deleteSelected } from '$lib/stores/circuit';
+	import { deleteSelected } from '$lib/stores/circuit';
+	import { activeSheet } from '$lib/stores/ui';
 
 	let uploadOpen = $state(false);
 
@@ -35,23 +30,12 @@
 	/>
 </svelte:head>
 
-<div class="flex h-screen flex-col bg-surface-50">
-	<TopNav />
+<AppShell onUploadClick={() => (uploadOpen = true)} />
 
-	{#if $viewMode === 'circuit'}
-		<Toolbar />
-		<div class="flex flex-1 overflow-hidden">
-			<LeftSidebar onUploadClick={() => (uploadOpen = true)} />
-			<main class="relative flex-1 overflow-hidden">
-				<Canvas editable={$editMode} />
-			</main>
-			<RightSidebar />
-		</div>
-	{:else if $viewMode === 'schematic'}
-		<SchematicView />
-	{:else}
-		<ComponentsTable />
-	{/if}
-</div>
-
-<UploadModal open={uploadOpen} onClose={() => (uploadOpen = false)} />
+<UploadModal
+	open={uploadOpen}
+	onClose={() => {
+		uploadOpen = false;
+		activeSheet.set(null);
+	}}
+/>
