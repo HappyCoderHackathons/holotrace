@@ -3,7 +3,9 @@
 	import { readFileAsDataUrl, parseSketch } from '$lib/sketchParser';
 	import { recognizeWithModel } from '$lib/modelApi';
 	import { loadDetectedCircuit } from '$lib/stores/circuit';
-	import { isCompact, isCoarsePointer } from '$lib/stores/ui';
+	import { isCompact } from '$lib/stores/ui';
+	import { hasVideoInput } from '$lib/camera';
+	import CameraCapture from './CameraCapture.svelte';
 
 	interface Props {
 		open?: boolean;
@@ -13,10 +15,20 @@
 	let { open = false, onClose = () => {} }: Props = $props();
 
 	let fileInput = $state<HTMLInputElement | undefined>();
-	let cameraInput = $state<HTMLInputElement | undefined>();
 	let processing = $state(false);
 	let dragOver = $state(false);
 	let error = $state<string | null>(null);
+	let cameraOpen = $state(false);
+
+	/*
+	 * Offer capture when a camera exists, not when the pointer is coarse. The
+	 * old `pointer: coarse` test hid the button on every desktop, webcam or
+	 * not, which is why the feature looked missing.
+	 */
+	let cameraAvailable = $state(false);
+	$effect(() => {
+		if (open) hasVideoInput().then((available) => (cameraAvailable = available));
+	});
 
 	async function handleFile(file: File | undefined | null) {
 		if (!file || processing) return;
@@ -54,9 +66,14 @@
 	function close() {
 		if (processing) return;
 		error = null;
+		cameraOpen = false;
 		if (fileInput) fileInput.value = '';
-		if (cameraInput) cameraInput.value = '';
 		onClose();
+	}
+
+	function handleCaptured(file: File) {
+		cameraOpen = false;
+		handleFile(file);
 	}
 </script>
 
@@ -117,26 +134,19 @@
 						<p class="text-xs text-chrome-400">Parsing your sketch into a digital circuit</p>
 					</div>
 				{:else}
-					{#if $isCoarsePointer}
+					{#if cameraAvailable}
 						<!--
-							On a phone the camera is the primary path: the product starts with
-							photographing a sketch, not with browsing a filesystem.
+							Capture is the product's first step, so it leads. Opens an
+							in-app viewfinder rather than handing off to the OS picker,
+							which does nothing on desktop and is unreliable in a webview.
 						-->
 						<button
 							class="flex min-h-touch w-full items-center justify-center gap-2 rounded-xl bg-accent py-3.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
-							onclick={() => cameraInput?.click()}
+							onclick={() => (cameraOpen = true)}
 						>
 							<Camera size={18} />
 							Take a photo
 						</button>
-						<input
-							bind:this={cameraInput}
-							type="file"
-							accept="image/*"
-							capture="environment"
-							class="hidden"
-							onchange={(e) => handleFile(e.currentTarget.files?.[0])}
-						/>
 
 						<div class="my-3 flex items-center gap-3 text-[11px] uppercase tracking-wide text-chrome-400">
 							<span class="h-px flex-1 bg-chrome-600"></span>
@@ -147,8 +157,8 @@
 
 					<button
 						class="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-colors"
-						class:py-8={$isCoarsePointer}
-						class:py-12={!$isCoarsePointer}
+						class:py-8={cameraAvailable}
+						class:py-12={!cameraAvailable}
 						class:border-accent={dragOver}
 						class:bg-accent-subtle={dragOver}
 						class:border-chrome-500={!dragOver}
@@ -167,7 +177,7 @@
 						<ImageUp size={28} class="text-chrome-400" />
 						<div class="px-4 text-center">
 							<p class="text-sm font-medium text-chrome-100">
-								{$isCoarsePointer ? 'Choose an existing photo' : 'Drop a photo or click to browse'}
+								{cameraAvailable ? 'Choose an existing photo' : 'Drop a photo or click to browse'}
 							</p>
 							<p class="mt-1 text-xs text-chrome-400">Hand-drawn sketch of your circuit, JPG or PNG</p>
 						</div>
@@ -202,3 +212,5 @@
 		</div>
 	</div>
 {/if}
+
+<CameraCapture open={cameraOpen} onCapture={handleCaptured} onClose={() => (cameraOpen = false)} />
