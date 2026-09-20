@@ -1,3 +1,8 @@
+/* Self-hosted so the Tauri desktop and Android builds have no CDN dependency. */
+@import '@fontsource-variable/inter';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/600.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,12 +11,14 @@
 	html,
 	body {
 		height: 100%;
-		background-color: #fafbfc;
+		background-color: theme('colors.chrome.900');
+		/* Keep the rubber-band overscroll from fighting canvas panning. */
+		overscroll-behavior: none;
 	}
 
 	body {
-		font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-		color: #1a2027;
+		font-family: theme('fontFamily.sans');
+		color: theme('colors.chrome.200');
 	}
 
 	* {
@@ -19,10 +26,27 @@
 	}
 
 	::selection {
-		background-color: #dbeafe;
+		background-color: theme('colors.accent.subtle');
+		color: theme('colors.ink.900');
 	}
 
-	/* thin scrollbars for panels */
+	/*
+	 * Every interactive element gets the same ring. Declared once here rather
+	 * than repeated per component so the accent can change in one place.
+	 */
+	:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+		outline: 2px solid theme('colors.accent.DEFAULT');
+		outline-offset: 2px;
+		border-radius: 4px;
+	}
+}
+
+@layer components {
+	/* Panel scrollbars, tuned for the dark chrome. */
+	.thin-scroll {
+		scrollbar-width: thin;
+		scrollbar-color: theme('colors.chrome.500') transparent;
+	}
 	.thin-scroll::-webkit-scrollbar {
 		width: 8px;
 		height: 8px;
@@ -31,11 +55,28 @@
 		background: transparent;
 	}
 	.thin-scroll::-webkit-scrollbar-thumb {
-		background-color: #d6dde3;
+		background-color: theme('colors.chrome.500');
 		border-radius: 8px;
 	}
 	.thin-scroll::-webkit-scrollbar-thumb:hover {
-		background-color: #9aa5b1;
+		background-color: theme('colors.chrome.400');
+	}
+
+	/* Small uppercase section label used across every panel header. */
+	.panel-label {
+		@apply text-[10px] font-semibold uppercase tracking-[0.06em] text-chrome-300;
+	}
+
+	/* Icon button in the chrome. Sized up automatically on touch devices. */
+	.chrome-icon-btn {
+		@apply flex h-9 w-9 items-center justify-center rounded-lg text-chrome-200 transition-colors;
+		@apply hover:bg-chrome-700 disabled:cursor-not-allowed disabled:text-chrome-500 disabled:hover:bg-transparent;
+	}
+
+	@media (pointer: coarse) {
+		.chrome-icon-btn {
+			@apply h-touch w-touch;
+		}
 	}
 }
 
@@ -53,5 +94,41 @@
 
 	.led-glow {
 		filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 0 14px currentColor);
+	}
+
+	/* Breathing ring on a pin that is armed and waiting for its partner tap. */
+	.pin-armed {
+		animation: pin-pulse 1.2s ease-in-out infinite;
+	}
+
+	@keyframes pin-pulse {
+		0%,
+		100% {
+			opacity: 0.9;
+			r: 13;
+		}
+		50% {
+			opacity: 0.35;
+			r: 18;
+		}
+	}
+
+	/* Home-indicator and notch clearance for bars pinned to a screen edge. */
+	.pb-safe {
+		padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+	}
+	.pt-safe {
+		padding-top: env(safe-area-inset-top);
+	}
+	.inset-x-safe {
+		padding-left: env(safe-area-inset-left);
+		padding-right: env(safe-area-inset-right);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.wire-flow,
+		.pin-armed {
+			animation: none;
+		}
 	}
 }
