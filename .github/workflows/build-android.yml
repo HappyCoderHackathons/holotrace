@@ -78,21 +78,32 @@ jobs:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: bun run android:build -- --debug --apk
 
-      - name: Prepare public Android package
+      - name: Verify and prepare public Android package
         run: |
           mkdir -p release-assets
-          apk=$(find src-tauri/gen/android/app/build/outputs/apk -type f -name "*.apk" -print -quit)
-          if [ -z "$apk" ]; then
-            echo "Tauri did not produce an Android APK." >&2
+          apk="src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk"
+          if [ ! -f "$apk" ]; then
+            echo "Tauri did not produce the expected universal Android APK: $apk" >&2
             exit 1
           fi
+
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+
+          apk_size=$(stat --format=%s "$apk")
+          max_apk_size=$((200 * 1024 * 1024))
+          if [ "$apk_size" -gt "$max_apk_size" ]; then
+            echo "Android APK is $apk_size bytes; native debug symbols may have been packaged." >&2
+            exit 1
+          fi
+
+          echo "Prepared Android APK ($apk_size bytes)."
           cp "$apk" release-assets/holotrace-android-debug.apk
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: holotrace-android-${{ github.sha }}
-          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
           if-no-files-found: error
           retention-days: 14
 
@@ -108,7 +119,7 @@ jobs:
 
             Source commit: `${{ github.sha }}`
 
-            This APK uses Android debug signing and is intended for testing current development builds.
+            This universal APK uses Android debug signing and is intended for testing current development builds.
           prerelease: true
           make_latest: false
           files: release-assets/holotrace-android-debug.apk
