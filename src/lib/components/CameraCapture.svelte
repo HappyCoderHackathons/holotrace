@@ -159,14 +159,24 @@
 				<X size={20} />
 			</button>
 			<span class="text-sm font-medium text-chrome-200">Photograph your sketch</span>
-			<button
-				class="chrome-icon-btn"
-				aria-label="Switch camera"
-				disabled={devices.length < 2 || phase === 'captured'}
-				onclick={switchCamera}
-			>
-				<SwitchCamera size={20} />
-			</button>
+			<!--
+				Only shown when there is something to switch to. A desktop with one
+				webcam has no second camera, and an always-visible disabled control
+				reads as a broken feature rather than an absent one. The empty span
+				keeps the title centred.
+			-->
+			{#if devices.length >= 2}
+				<button
+					class="chrome-icon-btn"
+					aria-label="Switch camera"
+					disabled={phase === 'captured'}
+					onclick={switchCamera}
+				>
+					<SwitchCamera size={20} />
+				</button>
+			{:else}
+				<span class="chrome-icon-btn" aria-hidden="true"></span>
+			{/if}
 		</div>
 
 		<div class="relative min-h-0 flex-1 overflow-hidden bg-black">

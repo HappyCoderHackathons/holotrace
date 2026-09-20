@@ -74,6 +74,9 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Build universal macOS DMG
+        env:
+          HOLOTRACE_MODEL_API_URL: ${{ secrets.HOLOTRACE_MODEL_API_URL }}
+          HOLOTRACE_ML_API_KEY: ${{ secrets.HOLOTRACE_ML_API_KEY }}
         run: bun run tauri build --target universal-apple-darwin --bundles dmg --config src-tauri/tauri.macos-ci.conf.json
 
       - name: Prepare public macOS package
