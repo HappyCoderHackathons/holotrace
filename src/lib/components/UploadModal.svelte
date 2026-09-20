@@ -190,6 +190,17 @@
 							or
 							<span class="h-px flex-1 bg-chrome-600"></span>
 						</div>
+                    {:else}
+                        <div class="my-3 flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs font-medium text-amber-400">
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path
+                                    fill-rule="evenodd"
+                                    d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.28 11.18c.75 1.335-.213 2.987-1.742 2.987H3.72c-1.53 0-2.493-1.652-1.743-2.987l6.28-11.18ZM10 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-.75-6.25a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1-1.5 0v-3.5Z"
+                                    clip-rule="evenodd"
+                                />
+                            </svg>
+                            <span class="uppercase tracking-wide">No camera detected</span>
+                        </div>
 					{/if}
 
 					<button
