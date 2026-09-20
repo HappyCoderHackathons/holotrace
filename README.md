@@ -2,6 +2,17 @@
 
 Holotrace turns a photograph of a hand-drawn circuit into an interactive circuit that can be reviewed, edited, and simulated.
 
+## Repository layout
+
+| Folder | What it is |
+| --- | --- |
+| [`src/`](src), [`src-tauri/`](src-tauri) | The app: the SvelteKit interface and the Tauri (Rust) shell. Development instructions are below. |
+| [`opencv/`](opencv/README.md) | The on-device OpenCV first pass: a photo in, a sharpened image and a recognition request out. Also a webcam dev page. |
+| [`classifier/`](classifier/README.md) | The PyTorch recognition models and the service that runs them. |
+| [`api_server/`](api_server/README.md) | The server side: the database schema and turning recognition results into a circuit. |
+| [`reference/`](reference/README.md) | Architecture and API documents. |
+| [`circuit-stuff/`](circuit-stuff/README.md) | Scripts for trying out the recognition service by hand. |
+
 ## Desktop development
 
 Install [Bun](https://bun.sh/), Rust, and the platform dependencies required by [Tauri](https://v2.tauri.app/start/prerequisites/), then run:

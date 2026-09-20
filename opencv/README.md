@@ -7,6 +7,8 @@ The on-device OpenCV stage of Holotrace. Given a photo of a hand-drawn circuit i
 
 The regions are hints for the service ([`classifier/`](../classifier/README.md)), not final answers. The image and request go to `POST /v0/recognize`; see [`reference/model-api-example.md`](../reference/model-api-example.md).
 
+It tries its best and does not have to be right. A person fixes the result up in the review step that follows, so it errs toward including something, and marks every component with where it came from and how sure it is.
+
 ## How to call it
 
 The reference caller is [`src/lib/opencvRecognition.ts`](../src/lib/opencvRecognition.ts). The sequence is:
@@ -51,6 +53,25 @@ Rules for callers:
 - **Free every `cv.Mat`.** `inkMask` returns one that the caller must delete.
 - **Run it on the full-resolution image**, not a downscaled copy. Everything is sized in pen-stroke widths, so it needs no other tuning.
 
+### Optional: a sweep, so the first pass does not have to be complete
+
+The first pass is a helper and never finds everything. To make the result not depend on it, add a sweep: square windows laid over the whole image, which the classifier accepts or rejects (it has a `background` label for boxes that hold no symbol). Then merge what the model says about them with the first pass's boxes. In the run on the switch pair this recovered a lamp and a switch the first pass had missed, and restored three switches the model had called `junction`.
+
+```ts
+import { gridWindows } from '../../opencv/candidates';
+import { reconcile } from '../../opencv/reconcile';
+import { tightenRegions, windowsWithInk } from '../../opencv/vision/sweep';
+
+// After step 4 above, keeping `ink` alive until the merge below:
+const windows = windowsWithInk(ink, gridWindows(source.cols, source.rows));            // windows that hold ink
+const request = buildRecognition(sharpened.cols, sharpened.rows, boxes, matches, windows);  // 5th argument: the sweep
+
+// Send `sharpened` and `request` as before, then merge the answer (`result.regions`) with what was proposed:
+const { components } = reconcile(tightenRegions(ink, request.regions), result.regions);
+```
+
+`components` are the final answer: each has a box, a classifier label (`cghd-v0`), a confidence, and a `source` saying where it came from: `first-pass` (the model agreed with the first pass's box), `relabelled` (the first pass's box with the label a sweep window got, when the model rejected the box), `kept` (the first pass was sure of a name and the model rejected it without any window disagreeing), or `sweep` (found only by the sweep). First-pass boxes that none of these apply to are returned in `dropped`. The merge leans toward finding things (a person fixes the result up in the review step afterwards, and each component carries its `source` and `confidence` for that). A sweep window counts if the model is at least `MERGE_MIN_CONFIDENCE` (0.6) sure of a component label and at least `MERGE_MIN_SUPPORT` (2) overlapping windows agree with it (1 over a first-pass box, whose own box is a vote): a real symbol lights up under several shifted windows, junk over wiring usually under one. The rules and their numbers are at the top of [`reconcile.ts`](reconcile.ts) and in [`config.ts`](config.ts); `reconcile` also takes an options object, for trying other values out. A request holds at most `MAX_PROPOSALS` (2000) regions; the service takes 2048. This is not yet wired into the app's caller in `src/lib/opencvRecognition.ts`.
+
 ## Functions
 
 | Function | Input | Returns |
@@ -59,7 +80,13 @@ Rules for callers:
 | `findComponents(ink)` in [`vision/components.ts`](vision/components.ts) | ink `Mat` | `{ boxes: Rect[], thickness: number }`; `Rect` is `{ x, y, width, height }`, `thickness` is a pen stroke's width in pixels |
 | `classify(ink, box, thickness)` in [`vision/classify.ts`](vision/classify.ts) | ink `Mat`, one box, `thickness` | `Match`: `{ label, group, confidence }`, the best symbol found and how well it matches (0 to 1) |
 | `nameOf(match)` in [`vision/classify.ts`](vision/classify.ts) | a `Match` | the name to report, or `null` (used by `buildRecognition`) |
-| `buildRecognition(width, height, boxes, matches)` in [`recognition.ts`](recognition.ts) | image size, boxes, matches | the `recognition-v0` request object |
+| `buildRecognition(width, height, boxes, matches, sweep?)` in [`recognition.ts`](recognition.ts) | image size, boxes, matches, optional sweep windows | the `recognition-v0` request object |
+| `gridWindows(width, height)` in [`candidates.ts`](candidates.ts) | image size | `Rect[]`, windows of several sizes over the image (no OpenCV) |
+| `windowsWithInk(ink, windows)` in [`vision/sweep.ts`](vision/sweep.ts) | ink `Mat`, windows | the windows that hold enough ink to send |
+| `tightenRegions(ink, regions)` in [`vision/sweep.ts`](vision/sweep.ts) | ink `Mat`, request regions | the regions with each sweep window shrunk to its ink |
+| `reconcile(regions, judgements)` in [`reconcile.ts`](reconcile.ts) | request regions, the model's `regions` | `{ components, dropped }` (no OpenCV) |
+| `agrees`, `toClassifierLabel`, `isComponentLabel` in [`labels.ts`](labels.ts) | names and labels | how this stage's names map to the classifier's labels (no OpenCV) |
+| `whenOpenCvReady()` in [`runtime.ts`](runtime.ts) | | OpenCV, once started, for a script running these functions outside a page |
 
 Tuning constants are in [`config.ts`](config.ts), each with a comment.
 
@@ -89,8 +116,24 @@ The names come from the textbook symbols in [`vision/symbols.ts`](vision/symbols
 
 ## Not yet matching the rest of the system
 
-- **Label names.** The classifier's label set is `cghd-v0` (`resistor`, `capacitor.unpolarized`, `voltage.battery`, `gnd`, `and`, ...; see [`labels.py`](../classifier/src/holotrace_classifier/labels.py)). The local names above are this stage's own. The server only echoes `local_label` back, so nothing breaks, but anything that starts using it needs a mapping.
+- **Label names.** The classifier's label set is `cghd-v0` (`resistor`, `capacitor.unpolarized`, `voltage.battery`, `gnd`, `and`, ...; see [`labels.py`](../classifier/src/holotrace_classifier/labels.py)). The local names above are this stage's own. The server only echoes `local_label` back, so nothing breaks. The mapping between the two is in [`labels.ts`](labels.ts) for anything that needs it; the API server has not been changed to use it.
 - **Wire graph and orientation.** The API server's [`OpenCvAnalysis`](../api_server/src/circuit/recognition.ts) also expects a wire graph and an optional rotation per region. This stage produces regions only.
+
+## Layout
+
+```text
+config.ts          every tunable number, each with a comment
+state.ts           state shared by the live and still stages
+recognition.ts     recognition-v0 types and buildRecognition
+candidates.ts      sweep windows laid over an image (no OpenCV)
+reconcile.ts       merging the first pass with the model's answer (no OpenCV)
+labels.ts          this stage's names against the classifier's labels (no OpenCV)
+runtime.ts         starting OpenCV outside a page
+geometry/          boxes and how they relate (no OpenCV)
+vision/            everything that looks at the image: ink, components, naming, the sweep, the live circuit
+pipeline/          the dev page's steps, previews and JSON panel
+index.html, main.ts  the dev page
+```
 
 ## Dev and test page
 
@@ -102,4 +145,4 @@ bun install
 bun run dev      # http://localhost:3000
 ```
 
-Press **R** or click **Reset camera** to start over. The camera is always opened at its native (largest) resolution; never hard-code a size. The live-capture code (`pipeline/`, `vision/circuit.ts`, `vision/capture.ts`) is only used by this page.
+Check the code with `bun run check` (a strict `tsc` over this folder). Press **R** or click **Reset camera** to start over. The camera is always opened at its native (largest) resolution; never hard-code a size. The live-capture code (`pipeline/`, `vision/circuit.ts`, `vision/capture.ts`) is only used by this page.
