@@ -25,7 +25,8 @@ export interface PreparedScan extends OpenCvRecognitionInput {
 	scan: ScanContext;
 }
 
-function waitForOpenCv(): Promise<void> {
+/** Resolves once OpenCV has finished loading (it starts on first use and takes a moment). */
+export function waitForOpenCv(): Promise<void> {
 	try {
 		const probe = new cv.Mat();
 		probe.delete();

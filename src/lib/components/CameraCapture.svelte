@@ -8,6 +8,9 @@
 		listVideoInputs,
 		CameraError
 	} from '$lib/camera';
+	import { HOLD_MS, HOLD_OPEN_MS } from '$lib/vision/config';
+	import { HoldMeter } from '$lib/vision/hold';
+	import type { LiveCircuit, LiveDetector } from '$lib/liveDetect';
 
 	interface Props {
 		open?: boolean;
@@ -31,6 +34,22 @@
 	let pending = $state<File | null>(null);
 	let previewUrl = $state<string | null>(null);
 
+	/*
+	 * Live detection, as on the dev page: the circuit is looked for in the camera's frames and boxed on screen, and once
+	 * it has been held still for long enough the photo is taken on its own. The shutter still works at any time.
+	 */
+	/** How often a frame is looked at. Detection is the heavy part, so not every frame. */
+	const DETECT_EVERY_MS = 120;
+	const meter = new HoldMeter();
+	let detector: LiveDetector | null = null;
+	let detection = $state<'loading' | 'ready' | 'off'>('loading');
+	let liveCircuit = $state<LiveCircuit | null>(null);
+	let holdProgress = $state(0);
+	let videoSize = $state({ width: 0, height: 0 });
+	let frameRequest = 0;
+	let lastLook = 0;
+	let capturing = false;
+
 	function releasePreview() {
 		if (previewUrl) URL.revokeObjectURL(previewUrl);
 		previewUrl = null;
@@ -38,9 +57,71 @@
 	}
 
 	function teardown() {
+		// (Also runs while the page is rendered on the server, where there are no animation frames.)
+		if (frameRequest) cancelAnimationFrame(frameRequest);
+		frameRequest = 0;
+		liveCircuit = null;
+		holdProgress = 0;
+		meter.reset();
 		stopStream(stream);
 		stream = null;
 		releasePreview();
+	}
+
+	/** Loads OpenCV and the detector the first time; the camera is usable in the meantime. */
+	async function loadDetector() {
+		if (detector) {
+			detection = 'ready';
+			return;
+		}
+		detection = 'loading';
+		try {
+			const { LiveDetector } = await import('$lib/liveDetect');
+			detector = await LiveDetector.create();
+			detection = 'ready';
+		} catch {
+			detection = 'off';
+		}
+	}
+
+	function watch(now: number) {
+		frameRequest = requestAnimationFrame(watch);
+		if (phase !== 'live' || !videoEl || !detector || capturing || now - lastLook < DETECT_EVERY_MS) return;
+		lastLook = now;
+		try {
+			if (videoEl.videoWidth !== videoSize.width || videoEl.videoHeight !== videoSize.height) {
+				videoSize = { width: videoEl.videoWidth, height: videoEl.videoHeight };
+			}
+			const found = detector.detect(videoEl);
+			liveCircuit = found;
+			// A closed loop is taken after HOLD_MS, any other circuit after the longer HOLD_OPEN_MS (it may be half drawn).
+			const holdMs = found?.closed ? HOLD_MS : HOLD_OPEN_MS;
+			const fire = meter.track(found?.box ?? null, now, holdMs);
+			holdProgress = meter.progress(holdMs);
+			if (fire) void autoCapture();
+		} catch {
+			// Detection failing must not take the camera with it: fall back to the shutter.
+			detector = null;
+			detection = 'off';
+			liveCircuit = null;
+			holdProgress = 0;
+		}
+	}
+
+	/** The circuit held still: take the photo and hand it on, as if it had been taken and accepted. */
+	async function autoCapture() {
+		if (!videoEl || phase !== 'live' || capturing) return;
+		capturing = true;
+		try {
+			const file = await grabFrame(videoEl);
+			teardown();
+			onCapture(file);
+		} catch (cause) {
+			errorMessage = cause instanceof CameraError ? cause.message : 'The photo could not be taken.';
+			phase = 'error';
+		} finally {
+			capturing = false;
+		}
 	}
 
 	async function start(deviceId?: string) {
@@ -57,6 +138,10 @@
 				await videoEl.play().catch(() => {});
 			}
 			phase = 'live';
+			meter.reset();
+			if (frameRequest) cancelAnimationFrame(frameRequest);
+			frameRequest = requestAnimationFrame(watch);
+			void loadDetector();
 		} catch (cause) {
 			errorMessage =
 				cause instanceof CameraError ? cause.message : 'The camera could not be started.';
@@ -82,6 +167,7 @@
 
 	function retake() {
 		releasePreview();
+		meter.reset();
 		phase = stream ? 'live' : 'error';
 	}
 
@@ -191,18 +277,64 @@
 			></video>
 
 			{#if phase === 'live'}
-				<!--
-					Framing guide. Recognition quality depends on the whole sketch
-					being in frame, so the affordance earns its place.
-				-->
-				<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-					<div class="h-full w-full max-h-[80%] max-w-3xl rounded-xl border-2 border-dashed border-white/35"></div>
+				{#if liveCircuit && videoSize.width}
+					<!--
+						The circuit that was found, outlined on the picture. The svg is laid out like the video (both
+						fit their box), so the video's own pixels place it. Grey: open circuit, waiting. Yellow: closed
+						circuit, waiting. Green: held long enough, being taken.
+					-->
+					<svg
+						class="pointer-events-none absolute inset-0 h-full w-full"
+						viewBox={`0 0 ${videoSize.width} ${videoSize.height}`}
+						preserveAspectRatio="xMidYMid meet"
+						aria-hidden="true"
+					>
+						<rect
+							x={liveCircuit.box.x}
+							y={liveCircuit.box.y}
+							width={liveCircuit.box.width}
+							height={liveCircuit.box.height}
+							rx="6"
+							fill="none"
+							stroke={holdProgress >= 1 ? '#22c55e' : liveCircuit.closed ? '#facc15' : 'rgba(255,255,255,0.65)'}
+							stroke-width="3"
+							vector-effect="non-scaling-stroke"
+						/>
+					</svg>
+				{:else}
+					<!-- Framing guide, until a circuit is found. -->
+					<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+						<div class="h-full w-full max-h-[80%] max-w-3xl rounded-xl border-2 border-dashed border-white/35"></div>
+					</div>
+				{/if}
+				<div class="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-4">
+					<p
+						class="rounded-full bg-black/55 px-3 py-1 text-center text-xs font-medium text-white"
+						role="status"
+						aria-live="polite"
+					>
+						{#if !liveCircuit}
+							Fit the whole sketch inside the frame
+						{:else if liveCircuit.closed}
+							Hold still to capture
+						{:else}
+							Hold still (this looks unfinished, so it waits a little longer)
+						{/if}
+					</p>
 				</div>
-				<p
-					class="pointer-events-none absolute inset-x-0 top-3 text-center text-xs font-medium text-white/80"
-				>
-					Fit the whole sketch inside the frame
-				</p>
+				{#if liveCircuit}
+					<div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+						<div class="h-1.5 w-40 overflow-hidden rounded-full bg-white/25" aria-hidden="true">
+							<div class="h-full rounded-full bg-accent" style={`width: ${Math.round(holdProgress * 100)}%`}></div>
+						</div>
+					</div>
+				{:else if detection === 'off'}
+					<div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-4">
+						<p class="rounded-full bg-black/55 px-3 py-1 text-center text-[11px] text-white/85">
+							Automatic capture is not available here. Use the shutter.
+						</p>
+					</div>
+				{/if}
 			{/if}
 
 			{#if phase === 'captured' && previewUrl}

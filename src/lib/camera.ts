@@ -101,9 +101,8 @@ export interface OpenStreamOptions {
 }
 
 /**
- * Open a capture stream, preferring the rear camera and a high enough
- * resolution to read pencil on paper. Both are requested as non-binding
- * `ideal` constraints so a laptop webcam, which has neither, still opens.
+ * Open a capture stream, preferring the rear camera. It is then switched to the largest size the camera supports
+ * (see useNativeResolution), so a laptop webcam or a phone opens the same way.
  */
 export async function openStream(options: OpenStreamOptions = {}): Promise<MediaStream> {
 	if (typeof window !== 'undefined' && !window.isSecureContext) {
@@ -113,21 +112,40 @@ export async function openStream(options: OpenStreamOptions = {}): Promise<Media
 		throw new CameraError('unavailable', MESSAGES.unavailable);
 	}
 
-	const video: MediaTrackConstraints = {
-		width: { ideal: 1920 },
-		height: { ideal: 1080 }
-	};
+	// No size is asked for here: the camera opens at its default, and the largest mode it has is requested afterwards
+	// (see useNativeResolution).
+	const video: MediaTrackConstraints = {};
 	if (options.deviceId) {
 		video.deviceId = { exact: options.deviceId };
 	} else {
 		video.facingMode = { ideal: 'environment' };
 	}
 
+	let stream: MediaStream;
 	try {
-		return await navigator.mediaDevices.getUserMedia({ video, audio: false });
+		stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
 	} catch (cause) {
 		throw toCameraError(cause);
 	}
+	await useNativeResolution(stream);
+	return stream;
+}
+
+/**
+ * Switches the camera to the largest size it supports and asks for continuous autofocus. The detail of pencil on paper
+ * decides how well a sketch reads, so the camera is always used at its native resolution, never a fixed size. Both
+ * requests are best effort: a camera that cannot do either just keeps what it opened with.
+ */
+async function useNativeResolution(stream: MediaStream): Promise<void> {
+	const [track] = stream.getVideoTracks();
+	if (!track) return;
+	const capabilities = track.getCapabilities?.();
+	if (capabilities?.width?.max && capabilities?.height?.max) {
+		await track
+			.applyConstraints({ width: { ideal: capabilities.width.max }, height: { ideal: capabilities.height.max } })
+			.catch(() => {});
+	}
+	await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => {});
 }
 
 /**
