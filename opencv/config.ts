@@ -136,6 +136,47 @@ export const SIZE_MISMATCH = 0.6;
 export const LABEL_MIN_CONFIDENCE = 0.55;
 export const LABEL_MIN_GROUP_CONFIDENCE = 0.4;
 
+// ---- Proposing more than the first pass finds, and merging the model's answer (see candidates.ts and reconcile.ts) ----
+
+// The first pass cannot find everything, so the boxes it finds can be joined by a sweep: square windows laid
+// over the whole image, which the classifier then accepts or rejects (it has a "background" label for
+// boxes that are not symbols). Windows are these fractions of the image's longer side, and move by
+// SWEEP_STRIDE of their size. On the app's side, a window needs at least SWEEP_MIN_INK_FRACTION ink to be
+// sent. A request holds at most MAX_PROPOSALS regions (the service takes 2048).
+export const SWEEP_SIZE_FRACTIONS = [0.07, 0.1, 0.15, 0.2];
+export const SWEEP_STRIDE = 0.5;
+export const SWEEP_MIN_INK_FRACTION = 0.02;
+export const MAX_PROPOSALS = 2000;
+
+// Merging: a sweep window counts only if the model gives it a component label with at least
+// MERGE_MIN_CONFIDENCE. It belongs to a first-pass box when the two overlap by at least MERGE_ATTACH_IOU (or one's centre lies in the other), and sweep windows overlapping each other by MERGE_SWEEP_NMS are one. A
+// first-pass box the model calls a non-component is still kept when the first pass was at least
+// MERGE_LOCAL_TRUST sure of a name.
+export const MERGE_MIN_CONFIDENCE = 0.6;
+// The merge leans toward finding things: a person fixes it up in the review step afterwards, and each component
+// carries its source and confidence for that. Still, a real symbol is hit by several overlapping windows and
+// junk (a window over wiring) usually by one, so a sweep window counts only if at least MERGE_MIN_SUPPORT
+// windows (itself included) that overlap it by at least MERGE_SUPPORT_IOU are given the same component label
+// by the model. (On five sample photos: 3 needs 0.8 confidence to keep out junk, 2 with 0.6 finds a few more
+// real symbols and lets a few junk boxes through, 1 lets in a lot.)
+export const MERGE_MIN_SUPPORT = 2;
+export const MERGE_SUPPORT_IOU = 0.25;
+export const MERGE_ATTACH_IOU = 0.15;
+export const MERGE_SWEEP_NMS = 0.3;
+export const MERGE_LOCAL_TRUST = 0.75;
+// A sweep window is shrunk to the ink inside it (plus SWEEP_TIGHT_PAD pixels at detection size) before merging, so
+// windows over one symbol land on the same box. A component found only by the sweep that is more than
+// MERGE_MAX_SIZE_RATIO times the size of the typical first-pass box is a window over several things, and is
+// ignored (judged only when the first pass found at least MERGE_SIZE_MIN_BOXES boxes).
+export const SWEEP_TIGHT_PAD = 3;
+export const MERGE_MAX_SIZE_RATIO = 1.6;
+export const MERGE_SIZE_MIN_BOXES = 3;
+
+// ---- Files the dev page downloads (also read by circuit-stuff/recognize.ts to pair them up) ----
+
+export const DOWNLOAD_JSON_NAME = "recognition.json";
+export const DOWNLOAD_IMAGE_NAME = "captured-circuit.png";
+
 // ---- Preview colours ----
 
 export const COMPONENT_COLOR: Color = [255, 140, 0, 255];
