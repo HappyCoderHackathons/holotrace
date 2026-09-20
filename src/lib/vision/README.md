@@ -24,11 +24,12 @@ import { inkMask } from '$lib/vision/ink';
 
 // `source` is the photo as an RGBA cv.Mat, e.g. from cv.imread(image). OpenCV must be loaded first.
 
-// 1. Tell the vision code how large this image is compared with the size it was tuned on.
-state.detectScale = Math.max(1, source.cols / DETECT_WIDTH);
-// 2. No circuit mask: the whole image is the circuit. (Delete a mask left over from a live capture.)
-state.capturedMask?.delete();
-state.capturedMask = null;
+// 1. Find the circuit in the photo and cut it out (`locateCircuit` in circuit.ts), so a table, a hand or a face
+//    around the paper is not scanned. It sets state.detectScale and state.capturedMask itself, and returns null
+//    when no whole circuit is in view; then use the photo as it is, and set them yourself:
+//      state.detectScale = Math.max(1, source.cols / DETECT_WIDTH);
+//      state.capturedMask?.delete(); state.capturedMask = null;
+//    (the app does this in opencvRecognition.ts). The rest works on the crop, so the boxes are in its pixels.
 
 // 3. The image to send: an unsharp mask of the photo.
 const blurred = new cv.Mat();
@@ -136,6 +137,7 @@ components.ts   component boxes
 classify.ts     best-guess naming
 symbols.ts      textbook symbol drawings and groups
 exemplars.ts    real hand-drawn examples
+circuit.ts      finding the whole circuit in a photo or frame, and cutting it out
 sweep.ts        the parts of the sweep that look at the ink
 wires.ts        which components each drawn wire touches
 cv.ts           the one OpenCV import point for the tools

@@ -24,7 +24,6 @@ The camera is always opened at its **native (largest supported) resolution**: `m
 ```text
 index.html, main.ts   the page and the camera loop
 pipeline/             the steps, previews and JSON panel
-vision/circuit.ts     finding the whole circuit in a live frame (the live camera only)
 vision/capture.ts     the hold-still charge meter and cropping the screenshot (the live camera only)
 ```
 

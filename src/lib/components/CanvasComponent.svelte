@@ -61,7 +61,15 @@
 	{#if selected}
 		<rect x="-38" y="-24" width="76" height="48" rx="10" fill="none" stroke="#2f6bff" stroke-width="1.5" stroke-dasharray="4 3" />
 	{/if}
-	<ComponentGlyph type={component.type} color={component.color} {lit} {active} {schematic} />
+	<ComponentGlyph
+		type={component.type}
+		color={component.color}
+		{lit}
+		{active}
+		{schematic}
+		label={component.label}
+		pinCount={component.pins.length}
+	/>
 
 	{#if showLabels}
 		<g transform={`rotate(${-component.rotation}) scale(${mirrorScale} 1)`}>

@@ -1,6 +1,9 @@
 import cv, { type Mat } from 'opencv-ts';
 import { DETECT_WIDTH, SHARPEN_AMOUNT, SHARPEN_SIGMA } from "./vision/config";
 import { buildRecognition } from "./vision/recognition";
+import { gridWindows } from "./vision/candidates";
+import { windowsWithInk } from "./vision/sweep";
+import { locateCircuit } from "./vision/circuit";
 import { state } from "./vision/state";
 import { classify } from "./vision/classify";
 import { findComponents } from "./vision/components";
@@ -53,19 +56,33 @@ function canvasAsPngDataUrl(canvas: HTMLCanvasElement): Promise<string> {
 	});
 }
 
+/**
+ * The stroke scale each prepared capture was scanned at, so the later steps (tracing the wires) read the same ink.
+ * It comes from the whole photo, not the crop, as it does on the dev page.
+ */
+const scans = new WeakMap<OpenCvRecognitionInput, number>();
+export const detectScaleOf = (input: OpenCvRecognitionInput): number | undefined => scans.get(input);
+
 /** Runs the inexpensive client pass and returns the exact image and pixel-space regions sent to ML. */
 export async function prepareRecognitionInput(sourceDataUrl: string): Promise<OpenCvRecognitionInput> {
 	await waitForOpenCv();
 	const image = await loadImage(sourceDataUrl);
-	const source = cv.imread(image);
+	const photo = cv.imread(image);
+	// Like the live camera stage: find the circuit in the photo and cut it out, so the paper's surroundings (a table,
+	// a hand, a face) are not scanned. When no whole circuit is in view the photo is used as it is.
+	const cropped = locateCircuit(photo);
+	const source = cropped ?? photo;
 	const blurred = new cv.Mat();
 	const sharpened = new cv.Mat();
 	let ink: Mat | null = null;
 
 	try {
-		state.detectScale = Math.max(1, source.cols / DETECT_WIDTH);
-		state.capturedMask?.delete();
-		state.capturedMask = null;
+		if (cropped === null) {
+			state.detectScale = Math.max(1, source.cols / DETECT_WIDTH);
+			state.capturedMask?.delete();
+			state.capturedMask = null;
+		}
+		const detectScale = state.detectScale;
 
 		cv.GaussianBlur(
 			source,
@@ -80,15 +97,20 @@ export async function prepareRecognitionInput(sourceDataUrl: string): Promise<Op
 		ink = inkMask(source);
 		const { boxes, thickness } = findComponents(ink);
 		const matches = boxes.map((box) => classify(ink!, box, thickness));
-		const request = buildRecognition(sharpened.cols, sharpened.rows, boxes, matches);
+		// The sweep: windows over the whole image, for the model to judge, so parts the first pass missed can still be found.
+		const sweep = windowsWithInk(ink, gridWindows(sharpened.cols, sharpened.rows));
+		const request = buildRecognition(sharpened.cols, sharpened.rows, boxes, matches, sweep);
 
 		const canvas = document.createElement('canvas');
 		cv.imshow(canvas, sharpened);
-		return { imageDataUrl: await canvasAsPngDataUrl(canvas), request };
+		const input = { imageDataUrl: await canvasAsPngDataUrl(canvas), request };
+		scans.set(input, detectScale);
+		return input;
 	} finally {
 		ink?.delete();
 		sharpened.delete();
 		blurred.delete();
 		source.delete();
+		if (cropped !== null) photo.delete();
 	}
 }
