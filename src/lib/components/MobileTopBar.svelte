@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Cpu, Image, SlidersHorizontal, Play, Square, Undo2, Redo2 } from 'lucide-svelte';
+	import { Image, SlidersHorizontal, Play, Square, Undo2, Redo2 } from 'lucide-svelte';
+	import BrandMark from './BrandMark.svelte';
 	import { viewMode, undo, redo, canUndo, canRedo } from '$lib/stores/circuit';
 	import { openSheet } from '$lib/stores/ui';
 	import { simulationRunning, startSimulation, stopSimulation } from '$lib/stores/simulation';
@@ -12,9 +13,7 @@
 	style="height: calc(3.25rem + env(safe-area-inset-top));"
 >
 	<div class="flex items-center gap-2 pl-1">
-		<div class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-white">
-			<Cpu size={16} strokeWidth={2.25} />
-		</div>
+		<BrandMark size={19} class="text-accent" />
 		<span class="text-sm font-semibold tracking-[-0.01em] text-chrome-100">Holotrace</span>
 	</div>
 
