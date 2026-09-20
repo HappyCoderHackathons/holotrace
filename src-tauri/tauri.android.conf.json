@@ -1,0 +1,17 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Holotrace",
+  "identifier": "com.holotrace.mobile",
+  "app": {
+    "windows": [
+      {
+        "title": "Holotrace"
+      }
+    ]
+  },
+  "bundle": {
+    "android": {
+      "minSdkVersion": 24
+    }
+  }
+}
