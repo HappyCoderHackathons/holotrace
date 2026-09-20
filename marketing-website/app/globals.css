@@ -111,6 +111,31 @@ button { font: inherit; }
 .trust-band p span { display: block; margin-bottom: 3px; color: white; font-size: 18px; font-weight: 620; }
 .trust-meta { color: #657386; font: 600 9px var(--font-geist-mono), monospace; letter-spacing: .12em; }
 
+.architecture { position: relative; overflow: hidden; }
+.architecture::before { content: ''; position: absolute; width: 520px; height: 520px; right: -240px; top: 90px; border: 1px solid rgba(75,124,255,.11); border-radius: 50%; box-shadow: 0 0 0 80px rgba(75,124,255,.025), 0 0 0 160px rgba(75,124,255,.015); pointer-events: none; }
+.architecture-intro { position: relative; display: grid; grid-template-columns: 1.15fr .85fr; align-items: end; gap: clamp(55px, 8vw, 130px); }
+.architecture-intro h2 { max-width: 850px; margin: 19px 0 0; font-size: clamp(40px, 4.4vw, 70px); line-height: .99; letter-spacing: -.052em; font-weight: 590; }
+.architecture-summary { max-width: 520px; padding-left: 25px; border-left: 1px solid rgba(75,124,255,.4); }
+.architecture-summary p { margin: 0 0 24px; color: var(--muted); font-size: 16px; line-height: 1.7; }
+.architecture-summary > span { display: flex; align-items: center; gap: 9px; color: #78869a; font: 600 9px var(--font-geist-mono), monospace; letter-spacing: .12em; }
+.architecture-summary > span i { width: 6px; height: 6px; border-radius: 50%; background: #69d49d; box-shadow: 0 0 10px rgba(105,212,157,.7); }
+.architecture-flow { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 72px; border: 1px solid var(--line); background: rgba(13,18,24,.76); }
+.architecture-stage { position: relative; min-width: 0; min-height: 390px; padding: 27px 27px 25px; border-right: 1px solid var(--line); }
+.architecture-stage:last-child { border-right: 0; }
+.architecture-stage:nth-child(2), .architecture-stage:nth-child(3) { background: linear-gradient(155deg, rgba(75,124,255,.09), rgba(75,124,255,.015)); }
+.architecture-stage-top { display: flex; align-items: center; justify-content: space-between; }
+.stage-number { color: #596677; font: 600 11px var(--font-geist-mono), monospace; }
+.stage-icon { display: grid; place-items: center; width: 39px; height: 39px; border: 1px solid rgba(119,160,255,.23); border-radius: 50%; color: var(--blue-bright); background: rgba(75,124,255,.08); }
+.stage-label { display: block; margin-top: 55px; color: var(--blue-bright); font: 650 9px var(--font-geist-mono), monospace; letter-spacing: .13em; }
+.architecture-stage h3 { max-width: 270px; margin: 12px 0 12px; font-size: 21px; line-height: 1.2; letter-spacing: -.025em; }
+.architecture-stage p { margin: 0 0 28px; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.stage-detail { position: absolute; left: 27px; right: 27px; bottom: 25px; color: #657386; font: 600 8px/1.45 var(--font-geist-mono), monospace; letter-spacing: .08em; }
+.flow-arrow { position: absolute; z-index: 2; display: grid; place-items: center; width: 30px; height: 30px; right: -15px; top: 51px; border: 1px solid rgba(119,160,255,.3); border-radius: 50%; background: #111720; color: var(--blue-bright); }
+.architecture-note { display: flex; align-items: flex-start; gap: 15px; max-width: 860px; margin: 22px 0 0 auto; padding: 19px 22px; border-left: 2px solid var(--blue); background: rgba(75,124,255,.055); }
+.architecture-note svg { flex: 0 0 auto; margin-top: 3px; color: var(--blue-bright); }
+.architecture-note p { margin: 0; color: #9ca8b7; font-size: 14px; line-height: 1.65; }
+.architecture-note strong { color: #e7ebf1; font-weight: 630; }
+
 .features { padding-top: 145px; }
 .split-intro { display: grid; grid-template-columns: 1.25fr .75fr; align-items: end; gap: 90px; max-width: none; }
 .split-intro > p { max-width: 460px; margin-bottom: 13px; font-size: 16px; }
@@ -150,6 +175,11 @@ footer { padding: 115px clamp(24px, 7vw, 112px) 28px; border-top: 1px solid var(
   .hero-copy { max-width: 760px; }
   .hero h1 { font-size: clamp(62px, 11vw, 100px); }
   .hero-visual { width: 96%; margin: 90px 0 0 4%; transform: none; }
+  .architecture-flow { grid-template-columns: repeat(2, 1fr); }
+  .architecture-stage { border-bottom: 1px solid var(--line); }
+  .architecture-stage:nth-child(2) { border-right: 0; }
+  .architecture-stage:nth-child(3), .architecture-stage:nth-child(4) { border-bottom: 0; }
+  .architecture-stage:nth-child(2) .flow-arrow { display: none; }
   .download { grid-template-columns: 1fr; }
   .download-heading { position: static; }
   .release-link { grid-column: 1; margin-top: -20px; }
@@ -175,6 +205,15 @@ footer { padding: 115px clamp(24px, 7vw, 112px) 28px; border-top: 1px solid var(
   .step-label { margin-top: 46px; }
   .trust-band { grid-template-columns: auto 1fr; margin: 0 24px; padding: 23px; }
   .trust-meta { display: none; }
+  .architecture-intro { grid-template-columns: 1fr; gap: 34px; }
+  .architecture-summary { padding-left: 0; padding-top: 23px; border-left: 0; border-top: 1px solid rgba(75,124,255,.4); }
+  .architecture-flow { grid-template-columns: 1fr; margin-top: 48px; }
+  .architecture-flow .architecture-stage { min-height: 330px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .architecture-flow .architecture-stage:last-child { border-bottom: 0; }
+  .architecture-flow .architecture-stage .flow-arrow { display: grid; top: auto; right: 26px; bottom: -15px; transform: rotate(90deg); }
+  .architecture-flow .architecture-stage:last-child .flow-arrow { display: none; }
+  .stage-label { margin-top: 38px; }
+  .architecture-note { margin-top: 18px; }
   .split-intro { grid-template-columns: 1fr; gap: 12px; }
   .feature-card { min-height: 230px; }
   .feature-card h3 { margin-top: 44px; }
