@@ -30,11 +30,14 @@
 	const DISMISS_PX = 90;
 
 	// Move focus into the sheet when it opens so keyboard and screen reader
-	// users land on the content rather than behind the backdrop.
+	// users land on the content rather than behind the backdrop. Focus lands on
+	// the panel itself unless a child opts in, because focusing the first
+	// control would raise the on-screen keyboard every time a sheet with a
+	// search field opens.
 	$effect(() => {
 		if (open && panel) {
-			const target = panel.querySelector<HTMLElement>('[data-autofocus], button, input, a[href]');
-			target?.focus({ preventScroll: true });
+			const target = panel.querySelector<HTMLElement>('[data-autofocus]') ?? panel;
+			target.focus({ preventScroll: true });
 		}
 		if (!open) dragY = 0;
 	});
@@ -106,6 +109,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label={title}
+		tabindex="-1"
 	>
 		<div
 			class="flex cursor-grab touch-none justify-center py-2.5 active:cursor-grabbing"
