@@ -6,6 +6,7 @@
 	import RightSidebar from '$lib/components/RightSidebar.svelte';
 	import Canvas from '$lib/components/Canvas.svelte';
 	import SchematicView from '$lib/components/SchematicView.svelte';
+	import ScanView from '$lib/components/Scanner.svelte';
 	import ComponentsTable from '$lib/components/ComponentsTable.svelte';
 	import UploadModal from '$lib/components/UploadModal.svelte';
 	import { viewMode, editMode, deleteSelected } from '$lib/stores/circuit';
@@ -49,8 +50,10 @@
 		</div>
 	{:else if $viewMode === 'schematic'}
 		<SchematicView />
-	{:else}
+	{:else if $viewMode === 'components'}
 		<ComponentsTable />
+	{:else if $viewMode === 'scan'}
+		<ScanView />
 	{/if}
 </div>
 

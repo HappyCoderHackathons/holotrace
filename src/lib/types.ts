@@ -47,7 +47,7 @@ export interface DetectionInfo {
 	detectedAt: number | null;
 }
 
-export type ViewMode = 'circuit' | 'schematic' | 'components';
+export type ViewMode = 'circuit' | 'schematic' | 'components' | 'scan';
 export type EditTool = 'select' | 'wire' | 'pan';
 
 export interface SimulationState {

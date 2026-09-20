@@ -19,7 +19,7 @@ async function waitForWidth(video: HTMLVideoElement, width: number) {
 }
 
 // Opens the camera at its native resolution, and asks it for continuous autofocus.
-async function openCamera(video: HTMLVideoElement) {
+export async function openCamera(video: HTMLVideoElement) {
     // Open with no size in mind first, to learn what the camera can do.
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     const [track] = stream.getVideoTracks();
@@ -28,7 +28,9 @@ async function openCamera(video: HTMLVideoElement) {
     // mode it has to what is asked for.
     const { width, height } = track.getCapabilities();
     if (width?.max && height?.max) {
-        await track.applyConstraints({ width: { ideal: width.max }, height: { ideal: height.max } });
+        await track
+            .applyConstraints({ width: { ideal: width.max }, height: { ideal: height.max } })
+            .catch(() => {});
     }
     // Many cameras ignore the autofocus request, so failure is fine.
     track.applyConstraints({ advanced: [{ focusMode: "continuous" } as MediaTrackConstraintSet] }).catch(() => {});
@@ -41,7 +43,7 @@ async function openCamera(video: HTMLVideoElement) {
     video.height = video.videoHeight;
 }
 
-function closeCamera(video: HTMLVideoElement) {
+export function closeCamera(video: HTMLVideoElement) {
     (video.srcObject as MediaStream).getTracks().forEach((track) => track.stop());
 }
 

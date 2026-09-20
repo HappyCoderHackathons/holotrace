@@ -6,7 +6,8 @@
 	const tabs: { id: ViewMode; label: string }[] = [
 		{ id: 'circuit', label: 'Circuit View' },
 		{ id: 'schematic', label: 'Schematic View' },
-		{ id: 'components', label: 'Components' }
+		{ id: 'components', label: 'Components' },
+		{ id: 'scan', label: 'Scanner' }
 	];
 
 	interface Props {
