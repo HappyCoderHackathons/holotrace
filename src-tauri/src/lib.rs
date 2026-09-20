@@ -6,6 +6,27 @@ use serde::{Deserialize, Serialize};
 
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 
+fn load_dotenv() {
+    if dotenvy::dotenv().is_ok() {
+        return;
+    }
+
+    let Ok(executable) = env::current_exe() else {
+        return;
+    };
+    let Some(executable_dir) = executable.parent() else {
+        return;
+    };
+
+    for directory in executable_dir.ancestors() {
+        let candidate = directory.join(".env");
+        if candidate.is_file() {
+            let _ = dotenvy::from_path(candidate);
+            return;
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct OpenCvRecognitionInput {
@@ -83,10 +104,12 @@ async fn recognize_circuit(
     input: OpenCvRecognitionInput,
 ) -> Result<serde_json::Value, ModelApiError> {
     let base_url = env::var("HOLOTRACE_MODEL_API_URL").map_err(|_| {
-        ModelApiError::new("HOLOTRACE_MODEL_API_URL is not configured for the Tauri process.")
+        ModelApiError::new(
+            "HOLOTRACE_MODEL_API_URL is not configured in .env or the Tauri process.",
+        )
     })?;
     let api_key = env::var("HOLOTRACE_ML_API_KEY").map_err(|_| {
-        ModelApiError::new("HOLOTRACE_ML_API_KEY is not configured for the Tauri process.")
+        ModelApiError::new("HOLOTRACE_ML_API_KEY is not configured in .env or the Tauri process.")
     })?;
     let endpoint = Url::parse(&format!("{}/v0/recognize", base_url.trim_end_matches('/')))
         .map_err(|_| ModelApiError::new("HOLOTRACE_MODEL_API_URL is invalid."))?;
@@ -124,8 +147,53 @@ async fn recognize_circuit(
         .map_err(|_| ModelApiError::new("The model API returned invalid JSON."))
 }
 
+/// WebView2 denies `getUserMedia` by default and, unlike a browser, shows the
+/// user no prompt to override it — the request simply fails. Granting the
+/// camera kind here is what makes the in-app viewfinder work on the desktop
+/// build. Scoped to the camera; every other permission keeps its default.
+#[cfg(windows)]
+fn allow_camera_permission(window: &tauri::WebviewWindow) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        COREWEBVIEW2_PERMISSION_KIND_CAMERA, COREWEBVIEW2_PERMISSION_STATE_ALLOW,
+    };
+    use webview2_com::PermissionRequestedEventHandler;
+
+    let result = window.with_webview(|webview| unsafe {
+        let controller = webview.controller();
+        let core = match controller.CoreWebView2() {
+            Ok(core) => core,
+            Err(error) => {
+                log::warn!("could not reach CoreWebView2: {error}");
+                return;
+            }
+        };
+
+        let mut token = std::mem::zeroed();
+        let handler = PermissionRequestedEventHandler::create(Box::new(|_, args| {
+            if let Some(args) = args {
+                let mut kind = COREWEBVIEW2_PERMISSION_KIND_CAMERA;
+                args.PermissionKind(&mut kind)?;
+                if kind == COREWEBVIEW2_PERMISSION_KIND_CAMERA {
+                    args.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+                }
+            }
+            Ok(())
+        }));
+
+        if let Err(error) = core.add_PermissionRequested(&handler, &mut token) {
+            log::warn!("could not register the camera permission handler: {error}");
+        }
+    });
+
+    if let Err(error) = result {
+        log::warn!("webview unavailable, camera capture will be blocked: {error}");
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    load_dotenv();
+
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![recognize_circuit])
         .setup(|app| {
@@ -136,6 +204,15 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            #[cfg(windows)]
+            {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    allow_camera_permission(&window);
+                }
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())
