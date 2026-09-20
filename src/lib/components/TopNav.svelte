@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Cpu, Share2 } from 'lucide-svelte';
+	import { Cpu } from 'lucide-svelte';
+	import FileActions from './FileActions.svelte';
 	import { viewMode } from '$lib/stores/circuit';
 	import type { ViewMode } from '$lib/types';
 
@@ -9,11 +10,6 @@
 		{ id: 'components', label: 'Components' }
 	];
 
-	interface Props {
-		onExport?: () => void;
-	}
-
-	let { onExport = () => {} }: Props = $props();
 </script>
 
 <!--
@@ -49,12 +45,6 @@
 	</nav>
 
 	<div class="flex items-center justify-end gap-2">
-		<button
-			class="flex items-center gap-1.5 rounded-lg border border-chrome-600 px-3.5 py-2 text-sm font-medium text-chrome-200 transition-colors hover:bg-chrome-700"
-			onclick={onExport}
-		>
-			<Share2 size={14} />
-			Export
-		</button>
+		<FileActions />
 	</div>
 </header>

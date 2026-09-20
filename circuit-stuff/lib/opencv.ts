@@ -1,7 +1,7 @@
 // Starting OpenCV (opencv-ts) outside a page, for a script that uses this folder's vision code. The dev page
 // and the app start it their own ways.
 
-import cv from "opencv-ts";
+import cv from "../../src/lib/vision/cv";
 
 // OpenCV once its runtime has started (it starts in the background when the package is first imported). This
 // polls instead of waiting for a callback, which does not fire again if OpenCV started before it was asked.

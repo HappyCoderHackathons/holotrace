@@ -16,6 +16,8 @@
 		armedPinId?: string | null;
 		onpointerdown?: (event: PointerEvent) => void;
 		onclick?: (event: MouseEvent) => void;
+		/** Enter or Space on the focused part. */
+		onSelect?: () => void;
 		onPinPointerDown?: (event: PointerEvent, pinId: string) => void;
 		onPinPointerUp?: (event: PointerEvent, pinId: string) => void;
 	}
@@ -32,6 +34,7 @@
 		armedPinId = null,
 		onpointerdown = () => {},
 		onclick = () => {},
+		onSelect = () => {},
 		onPinPointerDown = () => {},
 		onPinPointerUp = () => {}
 	}: Props = $props();
@@ -54,6 +57,7 @@
 	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === ' ') {
 			e.preventDefault();
+			onSelect();
 			onclick(e as unknown as MouseEvent);
 		}
 	}}
@@ -61,7 +65,15 @@
 	{#if selected}
 		<rect x="-38" y="-24" width="76" height="48" rx="10" fill="none" stroke="#2f6bff" stroke-width="1.5" stroke-dasharray="4 3" />
 	{/if}
-	<ComponentGlyph type={component.type} color={component.color} {lit} {active} {schematic} />
+	<ComponentGlyph
+		type={component.type}
+		color={component.color}
+		{lit}
+		{active}
+		{schematic}
+		label={component.label}
+		pinCount={component.pins.length}
+	/>
 
 	{#if showLabels}
 		<g transform={`rotate(${-component.rotation}) scale(${mirrorScale} 1)`}>

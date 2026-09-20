@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { X, ImageUp, Loader2, ScanLine, AlertTriangle, Camera } from 'lucide-svelte';
-	import { readFileAsDataUrl, parseSketch } from '$lib/sketchParser';
+	import { readFileAsDataUrl } from '$lib/sketchParser';
 	import { recognizeWithModel } from '$lib/modelApi';
 	import { loadDetectedCircuit } from '$lib/stores/circuit';
 	import { isCompact } from '$lib/stores/ui';
 	import { hasVideoInput } from '$lib/camera';
-	import type { OpenCvRecognitionInput } from '$lib/recognition';
+	import type { PreparedScan } from '$lib/opencvRecognition';
 	import CameraCapture from './CameraCapture.svelte';
 	import DetectionReview from './DetectionReview.svelte';
 
@@ -27,7 +27,7 @@
 	 * split so its proposals can be inspected before anything leaves the
 	 * device: a bad photo is cheaper to spot here than after a round trip.
 	 */
-	let prepared = $state<OpenCvRecognitionInput | null>(null);
+	let prepared = $state<PreparedScan | null>(null);
 	let sourceDataUrl = $state<string | null>(null);
 	let sending = $state(false);
 
@@ -63,6 +63,33 @@
 		}
 	}
 
+	/** Builds the circuit from the on-device scan alone: a rougher guess, still editable, and it needs no network. */
+	async function useScanOnly() {
+		if (!prepared || !sourceDataUrl || sending) return;
+		error = null;
+		sending = true;
+		try {
+			const { circuitFromRecognition } = await import('$lib/recognitionToCircuit');
+			const { circuit: found, summary } = await circuitFromRecognition(prepared, null);
+			loadDetectedCircuit({
+				...found,
+				detection: {
+					sourceImage: sourceDataUrl,
+					status: found.components.length ? `${summary} (from the on-device scan only)` : 'No parts were found in this photo',
+					detectedAt: Date.now()
+				}
+			});
+			discardPrepared();
+			// close() refuses while sending, so this is over first.
+			sending = false;
+			close();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : 'Could not build a circuit from the scan.';
+		} finally {
+			sending = false;
+		}
+	}
+
 	async function sendToModel() {
 		if (!prepared || !sourceDataUrl || sending) return;
 		error = null;
@@ -70,17 +97,21 @@
 		try {
 			const modelResult = await recognizeWithModel(prepared);
 			const predictionCount = modelResult.regions.length + modelResult.detections.length;
+			const { circuitFromRecognition } = await import('$lib/recognitionToCircuit');
+			const { circuit: found, summary } = await circuitFromRecognition(prepared, modelResult);
 			loadDetectedCircuit({
-				components: [],
-				wires: [],
+				...found,
 				detection: {
 					sourceImage: sourceDataUrl,
-					status: `Model recognized ${predictionCount} candidate${predictionCount === 1 ? '' : 's'}; circuit normalization is pending`,
+					status: found.components.length
+						? summary
+						: `Model recognized ${predictionCount} candidate${predictionCount === 1 ? '' : 's'}, but none were kept as parts`,
 					detectedAt: Date.now(),
 					recognition: modelResult
 				}
 			});
 			discardPrepared();
+			sending = false;
 			close();
 		} catch (cause) {
 			/*
@@ -258,5 +289,6 @@
 	{sending}
 	{error}
 	onSend={sendToModel}
+	onSkip={useScanOnly}
 	onBack={discardPrepared}
 />

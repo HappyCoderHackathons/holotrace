@@ -28,12 +28,12 @@ import {
     SOLID_MIN_FILL,
     SOLID_MIN_STROKES,
     SOLID_OPEN_STROKES,
-} from "../config";
-import { area, aspect, longSide, near, type Rect } from "../geometry/boxes";
+} from "./config";
+import { area, aspect, longSide, near, type Rect } from "./boxes";
 import { odd } from "./ink";
 
 // How thick one stroke is, in pixels: the ink's area over the length of its centre line.
-function strokeThickness(ink: Mat): number {
+export function strokeThickness(ink: Mat): number {
     const skel = new cv.Mat(ink.rows, ink.cols, cv.CV_8UC1, new cv.Scalar(0));
     const kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3), new cv.Point(-1, -1));
     const img = ink.clone();

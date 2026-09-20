@@ -13,7 +13,7 @@ These documents describe intentions, not implemented behavior. Names, schemas, d
 - [Schema](schema.sql.md): an annotated SQL draft for the PostgreSQL model.
 - [Circuit normalization](circuit-normalization.md): provisional OpenCV wire-graph, pin-template, and Circuit IR flow.
 - [Model API example](model-api-example.md): multipart recognition request and the OpenCV-to-Tauri call path.
-- [OpenCV first pass](../opencv/README.md): how to call the local pass, and the sweep and merge that keep the result from depending on it being complete.
+- [OpenCV first pass](../src/lib/vision/README.md): how to call the local pass, and the sweep and merge that keep the result from depending on it being complete.
 - [circuit-stuff](../circuit-stuff/README.md): scripts that send photo + JSON pairs to the model API and show the result.
 
 ## Current direction
