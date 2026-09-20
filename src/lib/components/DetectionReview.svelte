@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isSweepId } from '$lib/vision/candidates';
 	import { ArrowLeft, Send, ScanSearch, Loader2, AlertTriangle } from 'lucide-svelte';
 	import type { OpenCvRecognitionInput } from '$lib/recognition';
 
@@ -11,6 +12,8 @@
 		error?: string | null;
 		onSend?: () => void;
 		onBack?: () => void;
+		/** Build the circuit from this on-device scan alone, without the model. */
+		onSkip?: () => void;
 	}
 
 	let {
@@ -19,12 +22,25 @@
 		sending = false,
 		error = null,
 		onSend = () => {},
-		onBack = () => {}
+		onBack = () => {},
+		onSkip = () => {}
 	}: Props = $props();
 
-	const regions = $derived(input?.request.regions ?? []);
+	// The sweep windows (see vision/candidates.ts) are for the model to judge, not boxes to review, so they are not drawn.
+	const regions = $derived((input?.request.regions ?? []).filter((region) => !isSweepId(region.id)));
 	const width = $derived(input?.request.image_width ?? 0);
 	const height = $derived(input?.request.image_height ?? 0);
+
+	// The space the picture may fill (the padding around it is 12px a side), and its size fitted into that.
+	let areaWidth = $state(0);
+	let areaHeight = $state(0);
+	const fit = $derived(
+		width > 0 && height > 0 && areaWidth > 24 && areaHeight > 24
+			? Math.min((areaWidth - 24) / width, (areaHeight - 24) / height)
+			: 0
+	);
+	const shownWidth = $derived(Math.max(1, Math.floor(width * fit)));
+	const shownHeight = $derived(Math.max(1, Math.floor(height * fit)));
 
 	/** Anything this weak is worth visually flagging as a likely false positive. */
 	const LOW_CONFIDENCE = 0.5;
@@ -64,12 +80,20 @@
 			<span class="w-9"></span>
 		</div>
 
-		<div class="thin-scroll min-h-0 flex-1 overflow-auto bg-black p-3">
-			<div class="relative mx-auto w-full max-w-4xl">
+		<!--
+			The picture is the camera's own size, which can be several thousand pixels across. It is shown fitted to the
+			space there is (all of it, no scrolling); the boxes are drawn in its pixels and scale with it.
+		-->
+		<div
+			class="thin-scroll flex min-h-0 flex-1 flex-col items-center justify-center overflow-auto bg-black p-3"
+			bind:clientWidth={areaWidth}
+			bind:clientHeight={areaHeight}
+		>
+			<div class="relative flex-shrink-0" style={`width: ${shownWidth}px; height: ${shownHeight}px;`}>
 				<img
 					src={input.imageDataUrl}
 					alt="Sharpened sketch with the regions OpenCV proposed"
-					class="block h-auto w-full rounded-lg"
+					class="block h-full w-full rounded-lg"
 				/>
 				<!--
 					Same aspect ratio as the image and stretched over it, so the
@@ -145,6 +169,13 @@
 					below {Math.round(LOW_CONFIDENCE * 100)}%
 				</span>
 			</div>
+			<button
+				class="flex min-h-touch items-center gap-2 rounded-xl border border-chrome-600 px-4 text-sm font-medium text-chrome-200 transition-colors hover:bg-chrome-700 disabled:opacity-60"
+				disabled={sending}
+				onclick={onSkip}
+			>
+				Use scan only
+			</button>
 			<button
 				class="flex min-h-touch items-center gap-2 rounded-xl bg-accent px-5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
 				disabled={sending}

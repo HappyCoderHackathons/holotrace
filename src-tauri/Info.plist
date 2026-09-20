@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+	Merged into the macOS bundle by Tauri. Without a camera usage description
+	macOS refuses the capture request outright, so the in-app viewfinder could
+	not open even once the capture button was offered.
+-->
+<plist version="1.0">
+	<dict>
+		<key>NSCameraUsageDescription</key>
+		<string>Holotrace uses the camera to photograph your hand-drawn circuit sketches.</string>
+	</dict>
+</plist>

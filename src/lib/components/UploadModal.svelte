@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { X, ImageUp, Loader2, ScanLine, AlertTriangle, Camera } from 'lucide-svelte';
-	import { readFileAsDataUrl, parseSketch } from '$lib/sketchParser';
+	import { readFileAsDataUrl } from '$lib/sketchParser';
 	import { recognizeWithModel } from '$lib/modelApi';
 	import { createCurrentCircuit } from '$lib/stores/savedCircuits';
 	import { isCompact } from '$lib/stores/ui';
-	import { hasVideoInput } from '$lib/camera';
-	import type { OpenCvRecognitionInput } from '$lib/recognition';
+	import { canOfferCapture } from '$lib/camera';
+	import type { PreparedScan } from '$lib/opencvRecognition';
 	import CameraCapture from './CameraCapture.svelte';
 	import DetectionReview from './DetectionReview.svelte';
 
@@ -21,13 +21,20 @@
 	let dragOver = $state(false);
 	let error = $state<string | null>(null);
 	let cameraOpen = $state(false);
+	type RecognitionModule = typeof import('$lib/opencvRecognition');
+	let recognitionModule: Promise<RecognitionModule> | null = null;
+
+	function loadRecognitionModule(): Promise<RecognitionModule> {
+		recognitionModule ??= import('$lib/opencvRecognition');
+		return recognitionModule;
+	}
 
 	/*
 	 * The on-device pass and the model call used to run as one step. They are
 	 * split so its proposals can be inspected before anything leaves the
 	 * device: a bad photo is cheaper to spot here than after a round trip.
 	 */
-	let prepared = $state<OpenCvRecognitionInput | null>(null);
+	let prepared = $state<PreparedScan | null>(null);
 	let sourceDataUrl = $state<string | null>(null);
 	let circuitName = $state('Untitled circuit');
 	let sending = $state(false);
@@ -39,7 +46,13 @@
 	 */
 	let cameraAvailable = $state(false);
 	$effect(() => {
-		if (open) hasVideoInput().then((available) => (cameraAvailable = available));
+		if (open) {
+			canOfferCapture().then((available) => (cameraAvailable = available));
+			// Start the large OpenCV module while the user is choosing a source.
+			void loadRecognitionModule().catch(() => {
+				recognitionModule = null;
+			});
+		}
 	});
 
 	async function handleFile(file: File | undefined | null) {
@@ -65,6 +78,33 @@
 		}
 	}
 
+	/** Builds the circuit from the on-device scan alone: a rougher guess, still editable, and it needs no network. */
+	async function useScanOnly() {
+		if (!prepared || !sourceDataUrl || sending) return;
+		error = null;
+		sending = true;
+		try {
+			const { circuitFromRecognition } = await import('$lib/recognitionToCircuit');
+			const { circuit: found, summary } = await circuitFromRecognition(prepared, null);
+			loadDetectedCircuit({
+				...found,
+				detection: {
+					sourceImage: sourceDataUrl,
+					status: found.components.length ? `${summary} (from the on-device scan only)` : 'No parts were found in this photo',
+					detectedAt: Date.now()
+				}
+			});
+			discardPrepared();
+			// close() refuses while sending, so this is over first.
+			sending = false;
+			close();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : 'Could not build a circuit from the scan.';
+		} finally {
+			sending = false;
+		}
+	}
+
 	async function sendToModel() {
 		if (!prepared || !sourceDataUrl || sending) return;
 		error = null;
@@ -72,12 +112,15 @@
 		try {
 			const modelResult = await recognizeWithModel(prepared);
 			const predictionCount = modelResult.regions.length + modelResult.detections.length;
-			const createdCircuit = {
-				components: [],
-				wires: [],
+			const { circuitFromRecognition } = await import('$lib/recognitionToCircuit');
+			const { circuit: found, summary } = await circuitFromRecognition(prepared, modelResult);
+			loadDetectedCircuit({
+				...found,
 				detection: {
 					sourceImage: sourceDataUrl,
-					status: `Model recognized ${predictionCount} candidate${predictionCount === 1 ? '' : 's'}; circuit normalization is pending`,
+					status: found.components.length
+						? summary
+						: `Model recognized ${predictionCount} candidate${predictionCount === 1 ? '' : 's'}, but none were kept as parts`,
 					detectedAt: Date.now(),
 					recognition: modelResult
 				}
@@ -91,6 +134,7 @@
 
 			sending = false;
 			discardPrepared();
+			sending = false;
 			close();
 		} catch (cause) {
 			/*
@@ -214,14 +258,13 @@
                         </div>
 					{/if}
 
-					<button
+					<label
 						class="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition-colors"
 						class:py-8={cameraAvailable}
 						class:py-12={!cameraAvailable}
 						class:border-accent={dragOver}
 						class:bg-accent-subtle={dragOver}
 						class:border-chrome-500={!dragOver}
-						onclick={() => fileInput?.click()}
 						ondragover={(e) => {
 							e.preventDefault();
 							dragOver = true;
@@ -240,14 +283,15 @@
 							</p>
 							<p class="mt-1 text-xs text-chrome-400">Hand-drawn sketch of your circuit, JPG or PNG</p>
 						</div>
-					</button>
-					<input
-						bind:this={fileInput}
-						type="file"
-						accept="image/*"
-						class="hidden"
-						onchange={(e) => handleFile(e.currentTarget.files?.[0])}
-					/>
+						<!-- Native label activation is reliable in WKWebView; clicking a display:none input is not. -->
+						<input
+							bind:this={fileInput}
+							type="file"
+							accept="image/*"
+							class="sr-only"
+							onchange={(e) => handleFile(e.currentTarget.files?.[0])}
+						/>
+					</label>
 
 					{#if error}
 						<div
@@ -280,5 +324,6 @@
 	{sending}
 	{error}
 	onSend={sendToModel}
+	onSkip={useScanOnly}
 	onBack={discardPrepared}
 />

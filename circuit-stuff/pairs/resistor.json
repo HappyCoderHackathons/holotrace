@@ -1,0 +1,63 @@
+{
+  "schema_version": "recognition-v0",
+  "client_preprocess_version": "opencv-v1",
+  "image_width": 260,
+  "image_height": 233,
+  "regions": [
+    {
+      "id": "region-0",
+      "box": {
+        "x0": 92,
+        "y0": 184,
+        "x1": 131,
+        "y1": 210
+      },
+      "local_label": "resistor_ieee",
+      "local_confidence": 0.71
+    },
+    {
+      "id": "region-1",
+      "box": {
+        "x0": 40,
+        "y0": 179,
+        "x1": 77,
+        "y1": 202
+      },
+      "local_label": "transformer",
+      "local_confidence": 0.75
+    },
+    {
+      "id": "region-2",
+      "box": {
+        "x0": 161,
+        "y0": 121,
+        "x1": 205,
+        "y1": 144
+      },
+      "local_label": "resistor_ieee",
+      "local_confidence": 0.81
+    },
+    {
+      "id": "region-3",
+      "box": {
+        "x0": 70,
+        "y0": 119,
+        "x1": 112,
+        "y1": 148
+      },
+      "local_label": "resistor_ieee",
+      "local_confidence": 0.79
+    },
+    {
+      "id": "region-4",
+      "box": {
+        "x0": 145,
+        "y0": 33,
+        "x1": 174,
+        "y1": 57
+      },
+      "local_label": "battery_cell",
+      "local_confidence": 0.69
+    }
+  ]
+}

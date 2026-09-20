@@ -1,6 +1,6 @@
 // What a pipeline step is, and how its result is shown on the page.
 
-import { Mat } from "opencv-ts";
+import { Mat } from "../../src/lib/vision/cv";
 
 // Each step takes the previous step's output and writes its own.
 // `frame` is the untouched image the pipeline started from (the camera frame, or the captured
