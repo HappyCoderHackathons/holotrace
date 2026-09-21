@@ -188,6 +188,14 @@ cp .env.example .env   # set HOLOTRACE_ML_API_KEY, then export it into the envir
 uv run holotrace-ml serve --registry models --host <tailscale-ip> --port 8000
 ```
 
+The repository also includes both completed classifier checkpoints in [`weights/`](weights/README.md). That directory is a ready-to-run registry for restoring the service on a new machine:
+
+```sh
+uv sync --extra serve
+export HOLOTRACE_ML_API_KEY="replace-with-a-random-value-of-at-least-32-characters"
+uv run holotrace-ml serve --registry weights --host 127.0.0.1 --port 8000
+```
+
 | Route | Auth | Purpose |
 | --- | --- | --- |
 | `GET /health` | none | liveness |

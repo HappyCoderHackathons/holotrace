@@ -1,0 +1,32 @@
+{
+  "data": {
+    "root": "data/crops",
+    "input_size": 64,
+    "batch_size": 128,
+    "num_workers": 4,
+    "balance_classes": true,
+    "rotate90": true
+  },
+  "model": {
+    "arch": "resnet_tiny",
+    "width": 48,
+    "dropout": 0.2,
+    "pretrained": true
+  },
+  "optim": {
+    "epochs": 40,
+    "lr": 0.003,
+    "weight_decay": 0.0005,
+    "momentum": 0.9,
+    "warmup_epochs": 0.5,
+    "label_smoothing": 0.05,
+    "grad_clip": 1.0,
+    "amp": true,
+    "early_stop_patience": 8,
+    "time_budget_hours": 10.0
+  },
+  "seed": 1337,
+  "output_dir": "runs/classifier",
+  "run_name": "resnet_w48_cpu24",
+  "threads": 18
+}

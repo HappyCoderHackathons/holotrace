@@ -11,3 +11,7 @@ previews/
 *.pt
 *.pth
 *.onnx
+
+# The two release checkpoints in weights/ are deliberately versioned so a
+# fresh checkout can run inference without access to the training server.
+!weights/**/*.pt

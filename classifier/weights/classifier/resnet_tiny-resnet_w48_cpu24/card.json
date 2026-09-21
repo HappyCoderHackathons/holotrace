@@ -1,0 +1,15 @@
+{
+  "kind": "classifier",
+  "model_version": "resnet_tiny-resnet_w48_cpu24",
+  "source_run": "resnet_w48_cpu24",
+  "source_checkpoint": "best.pt",
+  "epoch": 8,
+  "label_set_version": "cghd-v0",
+  "preprocess_version": "gray-flat-v1",
+  "metrics": {
+    "loss": 0.14106076492087824,
+    "accuracy": 0.9761254370629371,
+    "macro_f1": 0.8022224615891561
+  },
+  "sha256": "91d51cfc715aa399feebe1281895361adfcdeaa25fabc057e1f8a863a7930904"
+}

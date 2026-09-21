@@ -1,0 +1,15 @@
+{
+  "kind": "classifier",
+  "model_version": "resnet_tiny-20260919-174324",
+  "source_run": "20260919-174324",
+  "source_checkpoint": "best.pt",
+  "epoch": 10,
+  "label_set_version": "cghd-v0",
+  "preprocess_version": "gray-flat-v1",
+  "metrics": {
+    "loss": 0.13219573103881382,
+    "accuracy": 0.9763439685314685,
+    "macro_f1": 0.8230471432017304
+  },
+  "sha256": "96019786ca87c835ce104d7a0b4070fc4fa119923111728d42bed48e186e48cc"
+}
