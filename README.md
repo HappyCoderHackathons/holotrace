@@ -1,5 +1,8 @@
 # Holotrace
 
+> [!NOTE]  
+> As of 10/1/2026, we no longer are running the model, so you need to find a way to run that yourself.
+
 Holotrace turns a photograph of a hand-drawn circuit into an interactive circuit that can be reviewed, edited, and simulated.
 
 ## Repository layout
